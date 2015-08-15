@@ -11,7 +11,7 @@ Paul Krzyzanowski
 #include <stdio.h>
 #include <string.h>
 #include <WinSock2.h>
-#include <Windows.h>
+//#include <Windows.h>
 #include <WS2tcpip.h>
 #include "port.h"
 

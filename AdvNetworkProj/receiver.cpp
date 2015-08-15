@@ -27,9 +27,18 @@ main(int argc, char **argv)
 		int fd;             /* our socket */
 		int msgcnt = 0;         /* count # of messages we received */
 		char buf[BUFSIZE]; /* receive buffer */
+		WSADATA wsa;
 
+		//Initialise winsock
+		printf("\nInitialising Winsock...");
+		if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
+		{
+			printf("Failed. Error Code : %d", WSAGetLastError());
+			exit(EXIT_FAILURE);
+		}
+		printf("Initialised.\n");
 
-																/* create a UDP socket */
+		/* create a UDP socket */
 
 		if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) == INVALID_SOCKET) {
 				perror("cannot create socket\n");

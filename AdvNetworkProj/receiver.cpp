@@ -17,8 +17,7 @@ Paul Krzyzanowski
 
 #define BUFSIZE 2048
 
-int
-main(int argc, char **argv)
+int receive(int argc, char **argv)
 {
 		struct sockaddr_in myaddr;  /* our address */
 		struct sockaddr_in remaddr; /* remote address */

@@ -20,13 +20,24 @@ Paul Krzyzanowski
 #define BUFLEN 2048
 #define MSGS 5	/* number of messages to send */
 
-int send(void)
+int main(void)
 {
 		struct sockaddr_in myaddr, remaddr;
 		int fd, i, slen = sizeof(remaddr);
 		char buf[BUFLEN];	/* message buffer */
 		int recvlen;		/* # bytes in acknowledgement message */
-		char *server = "127.0.0.1";	/* change this to use a different server */
+		char *server = "10.192.37.253";	/* change this to use a different server */
+		WSADATA wsa;
+
+																		//Initialise winsock
+		printf("\nInitialising Winsock...");
+		if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
+		{
+				printf("Failed. Error Code : %d", WSAGetLastError());
+				exit(EXIT_FAILURE);
+		}
+		printf("Initialised.\n");
+
 
 																/* create a socket */
 
@@ -67,10 +78,13 @@ int send(void)
 						exit(1);
 				}
 				/* now receive an acknowledgement from the server */
-				recvlen = recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)&remaddr, &slen);
-				if (recvlen >= 0) {
-						buf[recvlen] = 0;	/* expect a printable string - terminate it */
-						printf("received message: \"%s\"\n", buf);
+				while (true) {
+						recvlen = recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)&remaddr, &slen);
+						if (recvlen >= 0) {
+								buf[recvlen] = 0;	/* expect a printable string - terminate it */
+								printf("received message: \"%s\"\n", buf);
+						}
+						Sleep(100);
 				}
 		}
 		closesocket(fd);

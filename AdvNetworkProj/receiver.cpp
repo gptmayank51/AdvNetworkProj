@@ -66,10 +66,13 @@ int receive(int argc, char **argv)
 				}
 				else
 						printf("uh oh - something went wrong!\n");
-				sprintf_s(buf, "ack %d", msgcnt++);
-				printf("sending response \"%s\"\n", buf);
-				if (sendto(fd, buf, strlen(buf), 0, (struct sockaddr *)&remaddr, addrlen) < 0)
+				for (int i = 0; i < 100; i++)
+				{
+					sprintf_s(buf, "ack %d", msgcnt++);
+					printf("sending response \"%s\"\n", buf);
+					if (sendto(fd, buf, strlen(buf), 0, (struct sockaddr *)&remaddr, addrlen) < 0)
 						perror("sendto");
+				}
 		}
 		/* never exits */
 }

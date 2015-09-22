@@ -148,7 +148,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="receiver.cpp" />
-    <ClCompile Include="Source.cpp" />
     <ClCompile Include="Sender.cpp" />
     <ClCompile Include="TcpPacket.cpp" />
     <ClCompile Include="Test.cpp" />

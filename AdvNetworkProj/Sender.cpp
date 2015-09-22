@@ -16,17 +16,18 @@ Paul Krzyzanowski
 #include <Windows.h>
 #include <WS2tcpip.h>
 #include "port.h"
+#include "TcpPacket.h"
 
 #define BUFLEN 2048
 #define MSGS 5	/* number of messages to send */
 
-int sender(void)
+int main(void)
 {
 		struct sockaddr_in myaddr, remaddr;
 		int fd, i, slen = sizeof(remaddr);
 		char buf[BUFLEN];	/* message buffer */
 		int recvlen;		/* # bytes in acknowledgement message */
-		char *server = "10.192.37.253";	/* change this to use a different server */
+		char *server = "10.202.140.184";	/* change this to use a different server */
 		WSADATA wsa;
 
 																		//Initialise winsock
@@ -69,11 +70,13 @@ int sender(void)
 		}
 
 		/* now let's send the messages */
-
-		for (i = 0; i < MSGS; i++) {
+		unsigned short csum = (unsigned short)123;
+		bool flags[] = { true, false, true, false, true, false, true, false, true };
+		TcpPacket tcpPacket(123U, 456u, flags, 2048u, csum, 19238293801ull);
+		for (i = 0; i < 1; i++) {
 				printf("Sending packet %d to %s port %d\n", i, server, SERVICE_PORT);
-				sprintf_s(buf, "This is packet %d", i);
-				if (sendto(fd, buf, strlen(buf), 0, (struct sockaddr *)&remaddr, slen) == -1) {
+				//sprintf_s(buf, tcpPacket.buf, i);
+				if (sendto(fd, tcpPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 						perror("sendto");
 						exit(1);
 				}

@@ -20,7 +20,7 @@ Paul Krzyzanowski
 #define BUFLEN 2048
 #define MSGS 5	/* number of messages to send */
 
-int main(void)
+int sender(void)
 {
 		struct sockaddr_in myaddr, remaddr;
 		int fd, i, slen = sizeof(remaddr);

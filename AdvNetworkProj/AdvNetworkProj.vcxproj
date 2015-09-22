@@ -150,9 +150,12 @@
     <ClCompile Include="receiver.cpp" />
     <ClCompile Include="Source.cpp" />
     <ClCompile Include="Sender.cpp" />
+    <ClCompile Include="TcpPacket.cpp" />
+    <ClCompile Include="Test.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="port.h" />
+    <ClInclude Include="TcpPacket.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

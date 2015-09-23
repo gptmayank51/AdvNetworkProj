@@ -11,12 +11,51 @@ void TcpPacket::setBufferValues(int start, int size, char * value)
 		}
 }
 
+
+char TcpPacket::calculateCsum(char* buf) {
+	char csum = *buf;
+	for (int i = 0; i < PACKET_SIZE; i++) {
+		csum = csum^*(buf + i);
+	}
+	return csum;
+}
+
+char* TcpPacket::getBytes(char* buf, int start, int size) {
+	char* ans = (char *)malloc(sizeof(char)*size);
+	for (int i = 0; i < size; i++) {
+		*(ans + i) = *(buf + start + i);
+	}
+	return ans;
+}
+
+bool* TcpPacket::getFlags(char* buf) {
+	bool *flags = (bool *)malloc(sizeof(bool)*FLAG_SIZE);
+	memset(flags, 0, FLAG_SIZE);
+	
+	int start = SEQUENCE_SIZE + ACK_SIZE;
+	// Run loop to 1 less because last character is null character
+	for (int i = 0; i < FLAG_SIZE-1; i++) {
+		if (*(buf + start + i) == '1') {
+			*(flags + i) = true;
+		}
+		else {
+			*(flags + i) = false;
+		}
+	}
+	return flags;
+}
+
+void TcpPacket::setCsum(unsigned short checksum) {
+	char short_buffer[CHECKSUM_SIZE];
+	_itoa_s(checksum, short_buffer, 10);
+	setBufferValues(SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE, CHECKSUM_SIZE, short_buffer);
+}
+
 TcpPacket::TcpPacket(
 		unsigned int sequence_number,
 		unsigned int ack_number,
 		bool flags[],
 		unsigned int window_size,
-		unsigned short checksum,
 		unsigned long long int timestamp) {
 		buf = (char *)malloc(sizeof(char)*PACKET_SIZE);
 		memset(buf, 0, PACKET_SIZE);
@@ -47,20 +86,17 @@ TcpPacket::TcpPacket(
 		setBufferValues(current_bit, WINDOW_SIZE_SIZE, unsigned_int_buffer);
 		current_bit += WINDOW_SIZE_SIZE;
 
-		char short_buffer[CHECKSUM_SIZE];
-		_itoa_s(checksum, short_buffer, 10);
-		setBufferValues(current_bit, CHECKSUM_SIZE, short_buffer);
+		// Leave space for checksum
 		current_bit += CHECKSUM_SIZE;
 
 		char timestamp_buffer[TIMESTAMP_SIZE];
-		/*timestamp_buffer = (char *)malloc(sizeof(char) * sizeof(timestamp));
-		for (int i = 0; i < sizeof(timestamp); i++)
-		{
-				timestamp_buffer[i] = ((timestamp >> (i * 8)) & 0XFF);
-		}*/
 		_i64toa_s(timestamp, timestamp_buffer,TIMESTAMP_SIZE,10);
 		setBufferValues(current_bit, TIMESTAMP_SIZE, timestamp_buffer);
 		current_bit += TIMESTAMP_SIZE;
+
+		// Calculate checksum and set it
+		char csum = calculateCsum(buf);
+		setCsum(csum);
 }
 
 TcpPacket::~TcpPacket() {

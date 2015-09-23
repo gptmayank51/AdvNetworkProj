@@ -147,13 +147,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Network.cpp" />
     <ClCompile Include="receiver.cpp" />
     <ClCompile Include="Sender.cpp" />
+    <ClCompile Include="TcpConnection.cpp" />
     <ClCompile Include="TcpPacket.cpp" />
     <ClCompile Include="Test.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Network.h" />
     <ClInclude Include="port.h" />
+    <ClInclude Include="TcpConnection.h" />
     <ClInclude Include="TcpPacket.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -4,19 +4,24 @@
 #define ACK_SIZE 11
 #define FLAG_SIZE 10
 #define WINDOW_SIZE_SIZE 11
-#define CHECKSUM_SIZE 6
+#define CHECKSUM_SIZE 4
 #define TIMESTAMP_SIZE 14
 class TcpPacket
 {
 		void setBufferValues(int start, int end, char * value);
-
+		
 public:
+		#define ACKBIT 5
+		#define SYNBIT 8
+		char calculateCsum(char* buf);
+		void setCsum(unsigned short);
+		static bool* getFlags(char* buf);
+		static char* getBytes(char* buf, int start, int size);
 		char* buf;
 		TcpPacket(unsigned int sequence_number,
 				unsigned int ack_number,
 				bool flags[],
 				unsigned int window_size,
-				unsigned short checksum,
 				unsigned long long int timestamp);
 		~TcpPacket();
 };

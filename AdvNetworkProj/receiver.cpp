@@ -1,19 +1,12 @@
-/*
-demo-udp-03: udp-recv: a simple udp server
-receive udp messages
-
-usage:  udp-recv
-
-Paul Krzyzanowski
-*/
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <WinSock2.h>
-//#include <Windows.h>
+#include <time.h>
 #include <WS2tcpip.h>
+#include "Network.h"
 #include "port.h"
+#include "TcpPacket.h"
 
 #define BUFSIZE 2048
 
@@ -26,16 +19,9 @@ int receive(int argc, char **argv)
 		int fd;             /* our socket */
 		int msgcnt = 0;         /* count # of messages we received */
 		char buf[BUFSIZE]; /* receive buffer */
-		WSADATA wsa;
 
 		//Initialise winsock
-		printf("\nInitialising Winsock...");
-		if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
-		{
-			printf("Failed. Error Code : %d", WSAGetLastError());
-			exit(EXIT_FAILURE);
-		}
-		printf("Initialised.\n");
+		Network();
 
 		/* create a UDP socket */
 
@@ -55,24 +41,64 @@ int receive(int argc, char **argv)
 				perror("bind failed");
 				return 0;
 		}
-
+		int seqNo = rand() % 1000;
+		int ackNo = rand() % 1000;
 		/* now loop, receiving data and printing what we received */
 		for (;;) {
-				printf("waiting on port %d\n", SERVICE_PORT);
+			printf("waiting on port %d\n", SERVICE_PORT);
+			recvlen = recvfrom(fd, buf, BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
+
+			/* Check if Packet is a SYN packet */
+			bool* Aflags = TcpPacket::getFlags(buf);
+			if (*(Aflags + SYNBIT)) {
+				printf("SYN msg received\n");
+				char* seqno = TcpPacket::getBytes(buf, 0, SEQUENCE_SIZE);
+				int SseqNo = atoi(seqno);
+				char ackno[ACK_SIZE];
+				_itoa_s(ackNo, ackno, ACK_SIZE);
+
+				/* construct SYN-ACK for the packet just received*/
+				bool flags[] = { false, false, false, false, true, false, false, true, false };
+				seqNo++;
+				TcpPacket ackPacket(seqNo, ackNo, flags, 1u, time(0));
+				if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
+					perror("ackPacket");
+					exit(1);
+				}
+				printf("SYN-ACK sent\n");
 				recvlen = recvfrom(fd, buf, BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
-				if (recvlen > 0) {
-						buf[recvlen] = 0;
-						printf("received message: \"%s\" (%d bytes)\n", buf, recvlen);
+
+				/* Check if Packet is a SYN packet */
+				bool* Aflags = TcpPacket::getFlags(buf);
+				if (*(Aflags + ACKBIT)) {
+					printf("SYN msg received\n");
+					char* ackno = TcpPacket::getBytes(buf, SEQUENCE_SIZE, ACK_SIZE);
+					int rAck = atoi(ackno);
+					if (rAck == ackNo + 1) {
+						seqNo++;
+						printf("3 Way Handshake complete\n");
+					}
+					else {
+						perror("Ack no. wrong\n");
+						exit(1);
+					}
+					free(ackno);
 				}
-				else
-						printf("uh oh - something went wrong!\n");
-				for (int i = 0; i < 100; i++)
-				{
-					sprintf_s(buf, "ack %d", msgcnt++);
-					printf("sending response \"%s\"\n", buf);
-					if (sendto(fd, buf, strlen(buf), 0, (struct sockaddr *)&remaddr, addrlen) < 0)
-						perror("sendto");
+				else {
+					perror("ACK bit not properly set\n");
+					exit(1);
 				}
+				free(seqno);
+				free(Aflags);
+			}
+			else {
+				/* Normal packet */
+			}
 		}
 		/* never exits */
+}
+
+
+void performHandshake(char *buf) {
+	
 }

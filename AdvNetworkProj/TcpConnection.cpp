@@ -11,15 +11,15 @@
 
 #define BUFLEN 2048
 
-
+int TcpConnection::seqNo;
 TcpConnection::TcpConnection(char* ip, int port)
 {
 
 	struct sockaddr_in myaddr, remaddr;
-	int fd, i, slen = sizeof(remaddr);
+	int fd, slen = sizeof(remaddr);
 	char buf[BUFLEN];	/* message buffer */
 	int recvlen;		/* # bytes in acknowledgement message */
-	//char *SERVER = "10.202.140.184";	/* change this to use a different SERVER */
+	
 
 	srand(time(NULL));
 	bool flags[] = { false, false, false, false, false, false, false, true, false };
@@ -27,7 +27,7 @@ TcpConnection::TcpConnection(char* ip, int port)
 	TcpPacket synPacket(seqNo, rand(), flags, 1u, time(0));
 
 	/* Initialize Network */
-	Network network();
+	Network network = Network();
 
 	/* create a socket */
 	if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
@@ -63,6 +63,7 @@ TcpConnection::TcpConnection(char* ip, int port)
 	tv.tv_usec = 100000;
 	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv)) < 0) {
 		perror("socket timeout set failed");
+		exit(1);
 	}
 	
 
@@ -97,12 +98,16 @@ TcpConnection::TcpConnection(char* ip, int port)
 				exit(1);
 			}
 			printf("Three way handshake complete\n");
+			
+			/* Free memory */
+			free(seqno);
+			free(ackno);
 		}
 		else {
 			perror("Ack not received");
 			exit(1);
 		}
-
+		free(Aflags);
 	}
 	closesocket(fd);
 	

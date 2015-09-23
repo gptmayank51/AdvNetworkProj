@@ -2,7 +2,7 @@
 class TcpConnection
 {
 public:
-	int seqNo;
+	static int seqNo;
 	TcpConnection(char* ip, int port);
 	~TcpConnection();
 };

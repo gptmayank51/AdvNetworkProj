@@ -10,7 +10,7 @@
 
 #define BUFSIZE 2048
 
-int receive(int argc, char **argv)
+int main(int argc, char **argv)
 {
 		struct sockaddr_in myaddr;  /* our address */
 		struct sockaddr_in remaddr; /* remote address */
@@ -42,7 +42,6 @@ int receive(int argc, char **argv)
 				return 0;
 		}
 		int seqNo = rand() % 1000;
-		int ackNo = rand() % 1000;
 		/* now loop, receiving data and printing what we received */
 		for (;;) {
 			printf("waiting on port %d\n", SERVICE_PORT);
@@ -53,14 +52,12 @@ int receive(int argc, char **argv)
 			if (*(Aflags + SYNBIT)) {
 				printf("SYN msg received\n");
 				char* seqno = TcpPacket::getBytes(buf, 0, SEQUENCE_SIZE);
-				int SseqNo = atoi(seqno);
-				char ackno[ACK_SIZE];
-				_itoa_s(ackNo, ackno, ACK_SIZE);
-
+				int senderSeqNo = atoi(seqno);
+				
 				/* construct SYN-ACK for the packet just received*/
 				bool flags[] = { false, false, false, false, true, false, false, true, false };
 				seqNo++;
-				TcpPacket ackPacket(seqNo, ackNo, flags, 1u, time(0));
+				TcpPacket ackPacket(seqNo, senderSeqNo + 1, flags, 1u, time(0));
 				if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
 					perror("ackPacket");
 					exit(1);
@@ -74,7 +71,7 @@ int receive(int argc, char **argv)
 					printf("SYN msg received\n");
 					char* ackno = TcpPacket::getBytes(buf, SEQUENCE_SIZE, ACK_SIZE);
 					int rAck = atoi(ackno);
-					if (rAck == ackNo + 1) {
+					if (rAck == seqNo + 1) {
 						seqNo++;
 						printf("3 Way Handshake complete\n");
 					}

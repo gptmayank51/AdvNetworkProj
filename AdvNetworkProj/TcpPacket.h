@@ -11,10 +11,10 @@ class TcpPacket
 		void setBufferValues(int start, int end, char * value);
 		
 public:
-		#define ACKBIT 5
-		#define SYNBIT 8
-		char calculateCsum(char* buf);
-		void setCsum(unsigned short);
+		#define ACKBIT 4
+		#define SYNBIT 7
+		char* calculateCsum(char* buf);
+		void setCsum(char*);
 		static bool* getFlags(char* buf);
 		static char* getBytes(char* buf, int start, int size);
 		char* buf;

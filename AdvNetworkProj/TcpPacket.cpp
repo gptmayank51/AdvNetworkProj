@@ -12,10 +12,12 @@ void TcpPacket::setBufferValues(int start, int size, char * value)
 }
 
 
-char TcpPacket::calculateCsum(char* buf) {
-	char csum = *buf;
-	for (int i = 0; i < PACKET_SIZE; i++) {
-		csum = csum^*(buf + i);
+char* TcpPacket::calculateCsum(char* buf) {
+	char* csum = (char *)malloc(sizeof(char) * 16);
+	for (int i = 0; i < PACKET_SIZE/16; i++) {
+		for (int j = 0; j < 16; j++) {
+			*(csum + j) = *(csum + j) ^ *(buf + i + j);
+		}
 	}
 	return csum;
 }
@@ -45,10 +47,8 @@ bool* TcpPacket::getFlags(char* buf) {
 	return flags;
 }
 
-void TcpPacket::setCsum(unsigned short checksum) {
-	char short_buffer[CHECKSUM_SIZE];
-	_itoa_s(checksum, short_buffer, 10);
-	setBufferValues(SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE, CHECKSUM_SIZE, short_buffer);
+void TcpPacket::setCsum(char* checksum){
+	setBufferValues(SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE, CHECKSUM_SIZE, checksum);
 }
 
 TcpPacket::TcpPacket(
@@ -95,8 +95,9 @@ TcpPacket::TcpPacket(
 		current_bit += TIMESTAMP_SIZE;
 
 		// Calculate checksum and set it
-		char csum = calculateCsum(buf);
+		char* csum = calculateCsum(buf);
 		setCsum(csum);
+		free(csum);
 }
 
 TcpPacket::~TcpPacket() {

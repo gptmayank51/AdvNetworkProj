@@ -104,10 +104,10 @@ int main(int argc, char **argv) {
         // receive buffer cannot handle so many packets, so we ignore the receipt of this packet
       } else {
         if (recdSeqNo == nextExpectedSeqno) {
-          processStream(buf);
+          // processStream(buf);
           nextExpectedSeqno++;
           while (atoi(TcpPacket::getBytes(receiveBuffer.top(), 0, SEQUENCE_SIZE)) == nextExpectedSeqno) {
-            processStream(receiveBuffer.pop());
+            // processStream(receiveBuffer.pop());
             nextExpectedSeqno++;
           }
         } else {

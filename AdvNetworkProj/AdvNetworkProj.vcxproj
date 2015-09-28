@@ -152,7 +152,6 @@
     <ClCompile Include="Sender.cpp" />
     <ClCompile Include="TcpConnection.cpp" />
     <ClCompile Include="TcpPacket.cpp" />
-    <ClCompile Include="Test.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Network.h" />

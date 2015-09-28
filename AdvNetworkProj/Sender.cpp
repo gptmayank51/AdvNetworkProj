@@ -57,10 +57,13 @@ int main(void) {
   /* Set ssthreshold and congestion window size in terms of no of packets */
   int ssThresh = 16;
   int cwnd = 1;
-  int lastAcknowledged = seqNo;
+  int lastAcknowledged = seqNo;	/* ACK no of the last packet received */
   bool slowStart = true;
-  int CAacksReceived = 0;
-
+  bool fastRetransmit = false;
+  int CAacksReceived = 0;		/* ACK received in Congestion avoidance phase since last window increase */
+  int lostAck = -1;				/* ACK no of the lost packet indicated by triple dup ack */
+  int dupAcks = 0;
+  int FTcwnd = -1;				/* cnwd when entering the congestion avoidance phase */
 
   /* Send one packet */
   bool flags[] = { false, false, false, false, false, false, false, false, false };
@@ -91,9 +94,47 @@ int main(void) {
       printf("Packet received with ACK no %d", ano);
       free(ackno);
 
-      /* IMPLEMENT TCP FLOW CONTROL */
+	  if (lastAcknowledged == ano) {
+		  dupAcks++;
+	  }
+	  if (dupAcks > 0 && lastAcknowledged != ano) {
+		  dupAcks = 0;
+	  }
+	  if (dupAcks == 3) {
+		  fastRetransmit = true;
+		  lostAck = lastAcknowledged;
+		  cwnd = cwnd / 2;
+		  FTcwnd = cwnd;
+		  ssThresh = cwnd;
+		  dupAcks = 0;
+	  }
+	  /* CHECK FOR WHAT HAPPENS IF TRIPLE DUP ACK IN SLOW START PHASE */
 
-      if (slowStart) {
+	  if (fastRetransmit && ano == lostAck) {
+		  fastRetransmit = false;
+		  cwnd = FTcwnd;
+		  lostAck = -1;
+	  }
+
+      /* IMPLEMENT TCP FLOW CONTROL */
+	  if (fastRetransmit) {
+		  cwnd++;
+		  int packetsInAir = seqNo - (lastAcknowledged - 1);
+		  int canBeSent = cwnd - packetsInAir;
+		  /* Send newer packets if you can send more packets */
+		  for (int i = 0; i < canBeSent; i++) {
+			  seqNo++;
+			  bool flags[] = { false, false, false, false, false, false, false, false, false };
+			  TcpPacket packet = TcpPacket(seqNo, 0, flags, 0, time(0));
+			  printf("Sending packet with seq no %d\n", seqNo);
+			  //sprintf_s(buf, tcpPacket.buf, i);
+			  if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+				  perror("sendto");
+				  exit(1);
+			  }
+		  }
+	  }
+      else if (slowStart) {
         /* May be the ack was such that it acknowledged reception of so many packets that the
         increase in window size exceeds ssThresh */
         cwnd = min(cwnd + (ano - lastAcknowledged), ssThresh);
@@ -106,7 +147,7 @@ int main(void) {
           seqNo++;
           bool flags[] = { false, false, false, false, false, false, false, false, false };
           TcpPacket packet = TcpPacket(seqNo, 0, flags, 0, time(0));
-          printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+          printf("Sending packet with seq no %d\n", seqNo);
           //sprintf_s(buf, tcpPacket.buf, i);
           if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
             perror("sendto");
@@ -121,9 +162,27 @@ int main(void) {
         printf("Congestion avoidance phase\n");
 		CAacksReceived++;
 		if (CAacksReceived == cwnd) {
-
+			cwnd++;
+			CAacksReceived = 0;
+			printf("It's time to increase congestion window to %d\n", cwnd);
 		}
-        lastAcknowledged = ano;
+		lastAcknowledged = ano;
+		printf("Congestion avoidance: Window is %d & ssThresh is %d\n", cwnd, ssThresh);
+		int packetsInAir = seqNo - (lastAcknowledged - 1);
+		int canBeSent = cwnd - packetsInAir;
+		/* Send newer packets */
+		for (int i = 0; i < canBeSent; i++) {
+			seqNo++;
+			bool flags[] = { false, false, false, false, false, false, false, false, false };
+			TcpPacket packet = TcpPacket(seqNo, 0, flags, 0, time(0));
+			printf("Sending packet with seq no %d\n", seqNo);
+			//sprintf_s(buf, tcpPacket.buf, i);
+			if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+				perror("sendto");
+				exit(1);
+			}
+		}
+
       }
 
       /* Increment the sequence no */

@@ -12,7 +12,7 @@
 
 #define BUFLEN 2048
 
-int send(void) {
+int main(void) {
   /* Do 3 way handshake and decide on seq nos */
   TcpConnection connection = TcpConnection(SERVER, SERVICE_PORT);
   int seqNo = TcpConnection::seqNo;
@@ -20,7 +20,7 @@ int send(void) {
 
   /* Do further communication now */
   struct sockaddr_in myaddr, remaddr;
-  int fd, i, slen = sizeof(remaddr);
+  int fd, slen = sizeof(remaddr);
   char buf[BUFLEN];	/* message buffer */
   int recvlen;		/* # bytes in acknowledgement message */
 
@@ -57,7 +57,7 @@ int send(void) {
   /* Set ssthreshold and congestion window size in terms of no of packets */
   int ssThresh = 16;
   int cwnd = 1;
-  int lastAcknowledged = seqNo - 1;
+  int lastAcknowledged = seqNo;
   bool slowStart = true;
   int CAacksReceived = 0;
 
@@ -98,8 +98,8 @@ int send(void) {
         increase in window size exceeds ssThresh */
         cwnd = min(cwnd + (ano - lastAcknowledged), ssThresh);
         lastAcknowledged = ano;
-        printf("Slow start: Window increased to %d where ssThresh is %d", cwnd, ssThresh);
-        int packetsInAir = seqNo - lastAcknowledged;
+        printf("Slow start: Window increased to %d where ssThresh is %d\n", cwnd, ssThresh);
+        int packetsInAir = seqNo - (lastAcknowledged -1) ;
         int canBeSent = cwnd - packetsInAir;
         /* Send newer packets */
         for (int i = 0; i < canBeSent; i++) {
@@ -118,12 +118,16 @@ int send(void) {
           CAacksReceived = 0;
         }
       } else {
-        printf("Congestion avoidance phase");
+        printf("Congestion avoidance phase\n");
+		CAacksReceived++;
+		if (CAacksReceived == cwnd) {
+
+		}
         lastAcknowledged = ano;
       }
 
       /* Increment the sequence no */
-      seqNo++;
+      //seqNo++;
 
     }
   }

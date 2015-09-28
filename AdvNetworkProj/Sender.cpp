@@ -14,7 +14,7 @@
 
 #define BUFLEN 2048
 
-int send(void) {
+int main(void) {
   /* Do 3 way handshake and decide on seq nos */
   TcpConnection connection = TcpConnection(SERVER, SERVICE_PORT);
   int seqNo = TcpConnection::seqNo;
@@ -150,12 +150,18 @@ int send(void) {
 	  /* Clear packets from front of queue */
 	  TcpPacket* packet = packetQueue.front();
 	  int packetNo = atoi(TcpPacket::getBytes(packet->buf, 0, SEQUENCE_SIZE));
-	  while (ano <= packetNo)
+	  while (ano > packetNo)
 	  {
 		  free(packet);
 		  packetQueue.pop();
-		  packet = packetQueue.front();
-		  packetNo = atoi(TcpPacket::getBytes(packet->buf, 0, SEQUENCE_SIZE));
+		  if (!packetQueue.empty()) {
+			  packet = packetQueue.front();
+			  packetNo = atoi(TcpPacket::getBytes(packet->buf, 0, SEQUENCE_SIZE));
+		  }
+		  else{
+			  break;
+		  }
+			
 	  }
 	  /* packet now contains the packet at top of queue and packetNo is the sequence no of the packet */
 	  /* lastAcknowledged == ano during fast retransmit as well */
@@ -165,7 +171,7 @@ int send(void) {
 	  if (!fastRetransmit && dupAcks > 0 && lastAcknowledged != ano) {
 		  dupAcks = 0;
 	  }
-	  if (!fastRetransmit && dupAcks == 3) {
+	  if (!fastRetransmit && dupAcks == 2) {	/* dupacks is 2 on 3 duplicate acks */
 		  fastRetransmit = true;
 		  lostAck = lastAcknowledged;
 		  if (lostAck != packetNo) {
@@ -197,7 +203,7 @@ int send(void) {
 
 
 	  if (fastRetransmit) {
-		  cwnd++;
+		  //cwnd++;
 		  int packetsInAir = seqNo - (lastAcknowledged - 1);
 		  int canBeSent = cwnd - packetsInAir;
 		  /* Send newer packets if you can send more packets */

@@ -35,14 +35,12 @@ int main(int argc, char **argv) {
   Network();
 
   /* create a UDP socket */
-
   if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) == INVALID_SOCKET) {
     perror("cannot create socket\n");
     return 0;
   }
 
   /* bind the socket to any valid IP address and a specific port */
-
   memset((char *) &myaddr, 0, sizeof(myaddr));
   myaddr.sin_family = AF_INET;
   myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -52,15 +50,34 @@ int main(int argc, char **argv) {
     perror("bind failed");
     return 0;
   }
+
   int sendSeqNo = rand() % 1000;
   vector<char*> receiveBuffer;
-  int nextExpectedSeqno;
+  int nextExpectedSeqno = 0;
   /* now loop, receiving data and printing what we received */
   for (;;) {
     printf("waiting on port %d\n", SERVICE_PORT);
     buf = (char *) malloc(PACKET_SIZE * sizeof(char));
     recvlen = recvfrom(fd, buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
-    // check the checksum
+    
+    // Check the checksum
+    char* checksumSent = TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE, CHECKSUM_SIZE);
+    char* checkZeros = (char *) calloc(16, sizeof(char));
+    TcpPacket::setCsum(buf, checkZeros);
+    char* checksumRecd = TcpPacket::calculateCsum(buf);
+    for (int i = 0; i < 16; i++) {
+      if (*(checksumRecd + i) != *(checksumSent + i)) {
+        // Packet received has incorrect checksum, ACK the previous packet again
+        bool flags[] = { false, false, false, false, true, false, false, true, false };
+        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0));
+        if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
+          perror("error in sending ackPacket");
+          exit(1);
+        }
+        printf("Checksum incorrect. ACK sent expecting packet sequence number %d\n", nextExpectedSeqno);
+      }
+    }
+
     bool* Aflags = TcpPacket::getFlags(buf);
 
     /* Check if Packet is a SYN packet */
@@ -94,16 +111,16 @@ int main(int argc, char **argv) {
           printf("3 Way Handshake complete\n");
         } else {
           perror("Ack no. wrong\n");
-          exit(1); // we might want to do something else over here later
+          exit(1); // TODO: we might want to do something else over here later
         }
       } else {
         perror("ACK bit not properly set\n");
-        exit(1); // we might want to do something else over here later
+        exit(1); // TODO: we might want to do something else over here later
       }
       free(buf);
       free(Aflags);
     } else if (false /* insert condition for FIN here*/) {
-      // handle FIN packet and terminate connection
+      // TODO: handle FIN packet and terminate connection
     } else {
       // handle normal packet
       int recdSeqNo = atoi(TcpPacket::getBytes(buf, 0, SEQUENCE_SIZE));

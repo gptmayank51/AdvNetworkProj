@@ -19,6 +19,10 @@ struct comparePacketContents {
   }
 };
 
+void processStream(char *stream) {
+  free(stream);
+}
+
 int main(int argc, char **argv) {
   struct sockaddr_in myaddr;  /* our address */
   struct sockaddr_in remaddr; /* remote address */
@@ -105,10 +109,11 @@ int main(int argc, char **argv) {
         // receive buffer cannot handle so many packets, so we ignore the receipt of this packet
       } else {
         if (recdSeqNo == nextExpectedSeqno) {
-          // processStream(buf);
+          processStream(buf);
           nextExpectedSeqno++;
           while (atoi(TcpPacket::getBytes(receiveBuffer.top(), 0, SEQUENCE_SIZE)) == nextExpectedSeqno) {
-            // processStream(receiveBuffer.pop());
+            processStream(receiveBuffer.top());
+            receiveBuffer.pop();
             nextExpectedSeqno++;
           }
         } else {

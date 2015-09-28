@@ -42,6 +42,7 @@ int main(void) {
     return 0;
   }
 
+
   /* now define remaddr, the address to whom we want to send messages */
   /* For convenience, the host address is expressed as a numeric IP address */
   /* that we will convert to a binary format via inet_aton */
@@ -75,13 +76,51 @@ int main(void) {
     exit(1);
   }
 
+  
+
   /* now receive an acknowledgement from the server */
   while (true) {
+	  printf("Waiting for ACK\n");
+	  /* Set socket timeout */
+	  struct timeval tv;
+	  tv.tv_sec = 0;
+	  tv.tv_usec = 3000000;
+	  fd_set fds;
+	  int n;
+
+	  // Set up the file descriptor set.
+	  FD_ZERO(&fds);
+	  FD_SET(fd, &fds);
+
+	  // Wait until timeout or data received.
+	  n = select(fd, &fds, NULL, NULL, &tv);
+	  if (n == 0)
+	  {
+		  /* Restart transmission from last acknowledged packet */
+		  printf("Timeout Occurred :( \n");
+		  cwnd = 1;
+		  ssThresh = 16;
+		  slowStart = true;
+		  seqNo = lastAcknowledged;
+		  bool flags[] = { false, false, false, false, false, false, false, false, false };
+		  TcpPacket packet = TcpPacket(seqNo, 0, flags, 0, time(0));
+		  if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+			  perror("sendto");
+			  exit(1);
+		  }
+		  printf("Retransmitted packet with seq no %d\n", seqNo);
+	  }
+	  else if (n == -1)
+	  {
+		  printf("Error..\n");
+		  return 1;
+	  }
+
     recvlen = recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)&remaddr, &slen);
     if (recvlen >= 0) {
       bool* Aflags = TcpPacket::getFlags(buf);
       if (!*(Aflags + ACKBIT)) {
-        perror("ACK bit not set :o");
+        perror("ACK bit not set :o\n");
         exit(1);
       }
       free(Aflags);
@@ -91,32 +130,42 @@ int main(void) {
       if (ano < lastAcknowledged) {
         continue;
       }
-      printf("Packet received with ACK no %d", ano);
+      printf("Packet received with ACK no %d\n", ano);
       free(ackno);
 
-	  if (lastAcknowledged == ano) {
+	  if (!fastRetransmit && lastAcknowledged == ano) {
 		  dupAcks++;
 	  }
-	  if (dupAcks > 0 && lastAcknowledged != ano) {
+	  if (!fastRetransmit && dupAcks > 0 && lastAcknowledged != ano) {
 		  dupAcks = 0;
 	  }
-	  if (dupAcks == 3) {
+	  if (!fastRetransmit && dupAcks == 3) {
 		  fastRetransmit = true;
 		  lostAck = lastAcknowledged;
 		  cwnd = cwnd / 2;
 		  FTcwnd = cwnd;
 		  ssThresh = cwnd;
 		  dupAcks = 0;
+		  bool flags[] = { false, false, false, false, false, false, false, false, false };
+		  TcpPacket packet = TcpPacket(lostAck, 0, flags, 0, time(0));
+		  printf("FastRestransmit: Sending packet with seq no %d\n", lostAck);
+		  //sprintf_s(buf, tcpPacket.buf, i);
+		  if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+			  perror("sendto");
+			  exit(1);
+		  }
 	  }
 	  /* CHECK FOR WHAT HAPPENS IF TRIPLE DUP ACK IN SLOW START PHASE */
 
-	  if (fastRetransmit && ano == lostAck) {
+	  if (fastRetransmit && ano > lostAck) {
 		  fastRetransmit = false;
 		  cwnd = FTcwnd;
 		  lostAck = -1;
 	  }
 
       /* IMPLEMENT TCP FLOW CONTROL */
+
+
 	  if (fastRetransmit) {
 		  cwnd++;
 		  int packetsInAir = seqNo - (lastAcknowledged - 1);
@@ -126,7 +175,7 @@ int main(void) {
 			  seqNo++;
 			  bool flags[] = { false, false, false, false, false, false, false, false, false };
 			  TcpPacket packet = TcpPacket(seqNo, 0, flags, 0, time(0));
-			  printf("Sending packet with seq no %d\n", seqNo);
+			  printf("FastRestransmit: Sending packet with seq no %d\n", seqNo);
 			  //sprintf_s(buf, tcpPacket.buf, i);
 			  if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 				  perror("sendto");
@@ -159,7 +208,7 @@ int main(void) {
           CAacksReceived = 0;
         }
       } else {
-        printf("Congestion avoidance phase\n");
+        //printf("Congestion avoidance phase\n");
 		CAacksReceived++;
 		if (CAacksReceived == cwnd) {
 			cwnd++;

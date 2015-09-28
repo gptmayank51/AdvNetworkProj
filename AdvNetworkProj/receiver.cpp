@@ -114,14 +114,12 @@ int main(int argc, char **argv) {
         if (recdSeqNo == nextExpectedSeqno) {
           processStream(buf);
           nextExpectedSeqno++;
-          if (receiveBuffer.size() > 0) {
-            while (atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)) == nextExpectedSeqno) {
-              processStream(receiveBuffer.back());
-              receiveBuffer.pop_back();
-              printf("Queue size = %d\n", receiveBuffer.size());
-              printf("Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)));
-              nextExpectedSeqno++;
-            }
+          while (!receiveBuffer.empty() && atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)) <= nextExpectedSeqno) {
+            processStream(receiveBuffer.back());
+            receiveBuffer.pop_back();
+            printf("Queue size = %d\n", receiveBuffer.size());
+            printf("Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)));
+            nextExpectedSeqno++;
           }
         } else {
           printf("Pushing packet number %d into queue\n", recdSeqNo);

@@ -20,7 +20,7 @@ int send(void) {
 
   /* Do further communication now */
   struct sockaddr_in myaddr, remaddr;
-  int fd, i, slen = sizeof(remaddr);
+  int fd, slen = sizeof(remaddr);
   char buf[BUFLEN];	/* message buffer */
   int recvlen;		/* # bytes in acknowledgement message */
 

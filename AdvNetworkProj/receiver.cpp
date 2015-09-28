@@ -31,7 +31,6 @@ int receive(int argc, char **argv) {
   int fd;             /* our socket */
   int msgcnt = 0;         /* count # of messages we received */
   char *buf; /* receive buffer */
-  buf = (char *) malloc(PACKET_SIZE * sizeof(char));
 
   //Initialise winsock
   Network();
@@ -60,6 +59,7 @@ int receive(int argc, char **argv) {
   /* now loop, receiving data and printing what we received */
   for (;;) {
     printf("waiting on port %d\n", SERVICE_PORT);
+    buf = (char *) malloc(PACKET_SIZE * sizeof(char));
     recvlen = recvfrom(fd, buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
     bool* Aflags = TcpPacket::getFlags(buf);
 
@@ -76,8 +76,10 @@ int receive(int argc, char **argv) {
         perror("error in sending ackPacket");
         exit(1);
       }
+      free(buf);
       printf("SYN-ACK sent\n");
 
+      buf = (char *) malloc(PACKET_SIZE * sizeof(char));
       recvlen = recvfrom(fd, buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
       /* Check if Packet is a SYN packet */
       // TODO: is it not possible for reordering to happen in such a way in the network that the packet received is actually not a SYN packet but a normal one?
@@ -98,6 +100,7 @@ int receive(int argc, char **argv) {
         perror("ACK bit not properly set\n");
         exit(1); // we might want to do something else over here later
       }
+      free(buf);
       free(Aflags);
     } else if (false /* insert condition for FIN here*/) {
       // handle FIN packet and terminate connection
@@ -111,10 +114,12 @@ int receive(int argc, char **argv) {
         if (recdSeqNo == nextExpectedSeqno) {
           processStream(buf);
           nextExpectedSeqno++;
-          while (atoi(TcpPacket::getBytes(receiveBuffer.top(), 0, SEQUENCE_SIZE)) == nextExpectedSeqno) {
-            processStream(receiveBuffer.top());
-            receiveBuffer.pop();
-            nextExpectedSeqno++;
+          if (receiveBuffer.size() > 0) {
+            while (atoi(TcpPacket::getBytes(receiveBuffer.top(), 0, SEQUENCE_SIZE)) == nextExpectedSeqno) {
+              processStream(receiveBuffer.top());
+              receiveBuffer.pop();
+              nextExpectedSeqno++;
+            }
           }
         } else {
           receiveBuffer.push(buf);

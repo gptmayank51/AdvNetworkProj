@@ -1,9 +1,7 @@
 #pragma once
-class TcpConnection
-{
+class TcpConnection {
 public:
-	static int seqNo;
-	TcpConnection(char* ip, int port);
-	~TcpConnection();
+  static int seqNo;
+  TcpConnection(char* ip, int port);
+  ~TcpConnection();
 };
-

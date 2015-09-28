@@ -1,8 +1,9 @@
-#include <queue>
+#include <algorithm>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <vector>
 #include <WS2tcpip.h>
 #include <WinSock2.h>
 #include "Network.h"
@@ -13,11 +14,9 @@
 
 using namespace std;
 
-struct comparePacketContents {
-  bool operator()(char* lhs, char* rhs) const {
-    return atoi(TcpPacket::getBytes(lhs, 0, SEQUENCE_SIZE)) < atoi(TcpPacket::getBytes(rhs, 0, SEQUENCE_SIZE));
-  }
-};
+bool comparator(char* lhs, char* rhs) {
+  return atoi(TcpPacket::getBytes(lhs, 0, SEQUENCE_SIZE)) > atoi(TcpPacket::getBytes(rhs, 0, SEQUENCE_SIZE));
+}
 
 void processStream(char *stream) {
   free(stream);
@@ -54,7 +53,7 @@ int main(int argc, char **argv) {
     return 0;
   }
   int sendSeqNo = rand() % 1000;
-  priority_queue<char*, vector<char*>, comparePacketContents> receiveBuffer;
+  vector<char*> receiveBuffer;
   int nextExpectedSeqno;
   /* now loop, receiving data and printing what we received */
   for (;;) {
@@ -116,19 +115,20 @@ int main(int argc, char **argv) {
           processStream(buf);
           nextExpectedSeqno++;
           if (receiveBuffer.size() > 0) {
-            while (atoi(TcpPacket::getBytes(receiveBuffer.top(), 0, SEQUENCE_SIZE)) == nextExpectedSeqno) {
-              processStream(receiveBuffer.top());
-              receiveBuffer.pop();
+            while (atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)) == nextExpectedSeqno) {
+              processStream(receiveBuffer.back());
+              receiveBuffer.pop_back();
               printf("Queue size = %d\n", receiveBuffer.size());
-              printf("Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.top(), 0, SEQUENCE_SIZE)));
+              printf("Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)));
               nextExpectedSeqno++;
             }
           }
         } else {
           printf("Pushing packet number %d into queue\n", recdSeqNo);
-          receiveBuffer.push(buf);
+          receiveBuffer.push_back(buf);
+          sort(receiveBuffer.begin(), receiveBuffer.end(), comparator);
           printf("Queue size = %d\n", receiveBuffer.size());
-          printf("Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.top(), 0, SEQUENCE_SIZE)));
+          printf("Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)));
         }
 
         // Generate ACK for received packet

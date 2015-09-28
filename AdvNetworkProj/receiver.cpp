@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
     printf("waiting on port %d\n", SERVICE_PORT);
     buf = (char *) malloc(PACKET_SIZE * sizeof(char));
     recvlen = recvfrom(fd, buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
-    
+
     // Check the checksum
     char* checksumSent = TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE, CHECKSUM_SIZE);
     char* checkZeros = (char *) malloc(CHECKSUM_SIZE * sizeof(char));
@@ -134,18 +134,22 @@ int main(int argc, char **argv) {
           processStream(buf);
           nextExpectedSeqno++;
           while (!receiveBuffer.empty() && atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)) <= nextExpectedSeqno) {
+            if (atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)) <= nextExpectedSeqno == nextExpectedSeqno) {
+              nextExpectedSeqno++;
+            }
             processStream(receiveBuffer.back());
             receiveBuffer.pop_back();
             printf("Queue size = %d\n", receiveBuffer.size());
-            printf("Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)));
-            nextExpectedSeqno++;
+            if (!receiveBuffer.empty()) {
+              printf("Loop: Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)));
+            }
           }
         } else {
           printf("Pushing packet number %d into queue\n", recdSeqNo);
           receiveBuffer.push_back(buf);
           sort(receiveBuffer.begin(), receiveBuffer.end(), comparator);
           printf("Queue size = %d\n", receiveBuffer.size());
-          printf("Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)));
+          printf("Push: Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)));
         }
 
         // Generate ACK for received packet

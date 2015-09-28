@@ -91,10 +91,10 @@ int main(void) {
 	  TcpPacket* packet = packetQueue.front();
 	  long long diff = time(0);
 	  char *endp;
-	  long long start  = _strtoi64(TcpPacket::getBytes(packet->buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endp, 10);
+    long long start = _strtoi64(TcpPacket::getBytes(packet->buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endp, 10);
 	  struct timeval tv;
 	  tv.tv_sec = 0;
-	  tv.tv_usec = 3000000 - (long)(diff-start);					/* NEED TO CHECK IF ALWAYS POSITIVE? */
+    tv.tv_usec = 3000000 - (long) (diff - start);					/* NEED TO CHECK IF ALWAYS POSITIVE? */
 	  fd_set fds;
 	  int n;
 
@@ -122,8 +122,7 @@ int main(void) {
 		  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 		  printf("Retransmitted packet with seq no %d\n", seqNo);
 		  continue;
-	  }
-	  else if (n == -1)
+    } else if (n == -1)
 	  {
 		  printf("Error..\n");
 		  return 1;
@@ -155,9 +154,9 @@ int main(void) {
 		  free(packet);
 		  packetQueue.pop();
 		  if (!packetQueue.empty()) {
-			  packet = packetQueue.front();
-			  packetNo = atoi(TcpPacket::getBytes(packet->buf, 0, SEQUENCE_SIZE));
-		  }
+		  packet = packetQueue.front();
+		  packetNo = atoi(TcpPacket::getBytes(packet->buf, 0, SEQUENCE_SIZE));
+	  }
 		  else{
 			  break;
 		  }
@@ -220,20 +219,18 @@ int main(void) {
 			  }
 			  packetQueue.push(newPacket);
 		  }
-	  }
-      else if (slowStart) {
+      } else if (slowStart) {
         /* May be the ack was such that it acknowledged reception of so many packets that the
         increase in window size exceeds ssThresh */
 
 		  if (ano - lastAcknowledged > 10) {
 			  cwnd = cwnd + 1;
-		  }
-		  else {
+        } else {
 			  cwnd = min(cwnd + (ano - lastAcknowledged), ssThresh);
 		  }
         lastAcknowledged = ano;
         printf("Slow start: Window increased to %d where ssThresh is %d\n", cwnd, ssThresh);
-        int packetsInAir = seqNo - (lastAcknowledged -1) ;
+        int packetsInAir = seqNo - (lastAcknowledged - 1);
         int canBeSent = cwnd - packetsInAir;
         /* Send newer packets */
         for (int i = 0; i < canBeSent; i++) {
@@ -269,7 +266,7 @@ int main(void) {
 		for (int i = 0; i < canBeSent; i++) {
 			seqNo++;
 			bool flags[] = { false, false, false, false, false, false, false, false, false };
-			TcpPacket * newPacket =new TcpPacket(seqNo, 0, flags, 0, time(0));
+          TcpPacket * newPacket = new TcpPacket(seqNo, 0, flags, 0, time(0));
 			printf("Sending packet with seq no %d\n", seqNo);
 			myfile << "C " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 			//sprintf_s(buf, tcpPacket.buf, i);

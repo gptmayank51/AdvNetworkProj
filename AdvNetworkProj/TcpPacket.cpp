@@ -2,10 +2,8 @@
 #include <stdio.h>
 #include <string>
 
-void TcpPacket::setBufferValues(int start, int size, char * value) {
+void TcpPacket::setBufferValues(char* buf, int start, int size, char * value) {
   for (int currentDigit = start; currentDigit < start + size; currentDigit++) {
-    /*if (*(value + start - currentDigit) == '\0') {
-    }*/
     buf[currentDigit] = *(value + currentDigit - start);
   }
 }
@@ -44,8 +42,8 @@ bool* TcpPacket::getFlags(char* buf) {
   return flags;
 }
 
-void TcpPacket::setCsum(char* checksum) {
-  setBufferValues(SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE, CHECKSUM_SIZE, checksum);
+void TcpPacket::setCsum(char* buf, char* checksum) {
+  setBufferValues(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE, CHECKSUM_SIZE, checksum);
 }
 
 TcpPacket::TcpPacket(
@@ -60,11 +58,11 @@ TcpPacket::TcpPacket(
   int current_bit = 0;
 
   _itoa_s(sequence_number, unsigned_int_buffer, 10);
-  setBufferValues(current_bit, SEQUENCE_SIZE, unsigned_int_buffer);
+  setBufferValues(buf, current_bit, SEQUENCE_SIZE, unsigned_int_buffer);
   current_bit += SEQUENCE_SIZE;
 
   _itoa_s(ack_number, unsigned_int_buffer, 10);
-  setBufferValues(current_bit, ACK_SIZE, unsigned_int_buffer);
+  setBufferValues(buf, current_bit, ACK_SIZE, unsigned_int_buffer);
   current_bit += ACK_SIZE;
 
   char bool_buffer[9];
@@ -75,11 +73,11 @@ TcpPacket::TcpPacket(
       bool_buffer[i] = '0';
     }
   }
-  setBufferValues(current_bit, FLAG_SIZE, bool_buffer);
+  setBufferValues(buf, current_bit, FLAG_SIZE, bool_buffer);
   current_bit += FLAG_SIZE;
 
   _itoa_s(window_size, unsigned_int_buffer, 10);
-  setBufferValues(current_bit, WINDOW_SIZE_SIZE, unsigned_int_buffer);
+  setBufferValues(buf, current_bit, WINDOW_SIZE_SIZE, unsigned_int_buffer);
   current_bit += WINDOW_SIZE_SIZE;
 
   // Leave space for checksum
@@ -87,12 +85,14 @@ TcpPacket::TcpPacket(
 
   char timestamp_buffer[TIMESTAMP_SIZE];
   _i64toa_s(timestamp, timestamp_buffer, TIMESTAMP_SIZE, 10);
-  setBufferValues(current_bit, TIMESTAMP_SIZE, timestamp_buffer);
+  setBufferValues(buf, current_bit, TIMESTAMP_SIZE, timestamp_buffer);
   current_bit += TIMESTAMP_SIZE;
+
+  // TODO: Add data into the packet
 
   // Calculate checksum and set it
   char* csum = calculateCsum(buf);
-  setCsum(csum);
+  setCsum(buf, csum);
   free(csum);
 }
 

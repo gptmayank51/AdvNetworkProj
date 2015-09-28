@@ -9,12 +9,12 @@
 #include "port.h"
 #include "TcpPacket.h"
 
-#define RECEIVE_BUFFER_SIZE 32
+#define RECEIVE_BUFFER_SIZE 2048
 
 using namespace std;
 
 struct comparePacketContents {
-  bool operator()(char lhs[], char rhs[]) const {
+  bool operator()(char* lhs, char* rhs) const {
     return atoi(TcpPacket::getBytes(lhs, 0, SEQUENCE_SIZE)) < atoi(TcpPacket::getBytes(rhs, 0, SEQUENCE_SIZE));
   }
 };
@@ -26,7 +26,8 @@ int main(int argc, char **argv) {
   int recvlen;            /* # bytes received */
   int fd;             /* our socket */
   int msgcnt = 0;         /* count # of messages we received */
-  char buf[PACKET_SIZE]; /* receive buffer */
+  char *buf; /* receive buffer */
+  buf = (char *) malloc(PACKET_SIZE * sizeof(char));
 
   //Initialise winsock
   Network();
@@ -50,7 +51,7 @@ int main(int argc, char **argv) {
     return 0;
   }
   int sendSeqNo = rand() % 1000;
-  priority_queue<char[], vector<char[]>, comparePacketContents> receiveBuffer;
+  priority_queue<char*, vector<char*>, comparePacketContents> receiveBuffer;
   int nextExpectedSeqno;
   /* now loop, receiving data and printing what we received */
   for (;;) {
@@ -66,7 +67,7 @@ int main(int argc, char **argv) {
 
       /* construct SYN-ACK for the packet just received*/
       bool flags[] = { false, false, false, false, true, false, false, true, false };
-      TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, 1u, time(0));
+      TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) RECEIVE_BUFFER_SIZE, time(0));
       if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
         perror("error in sending ackPacket");
         exit(1);
@@ -111,12 +112,12 @@ int main(int argc, char **argv) {
             nextExpectedSeqno++;
           }
         } else {
-          receiveBuffer.push(&buf);
+          receiveBuffer.push(buf);
         }
 
         // Generate ACK for received packet
         bool flags[] = { false, false, false, false, true, false, false, true, false };
-        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, 1u, time(0));
+        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0));
         if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
           perror("error in sending ackPacket");
           exit(1);

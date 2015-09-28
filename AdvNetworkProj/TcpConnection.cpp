@@ -12,8 +12,7 @@
 #define BUFLEN 2048
 
 int TcpConnection::seqNo;
-TcpConnection::TcpConnection(char* ip, int port)
-{
+TcpConnection::TcpConnection(char* ip, int port) {
 
 	struct sockaddr_in myaddr, remaddr;
 	int fd, slen = sizeof(remaddr);
@@ -35,7 +34,7 @@ TcpConnection::TcpConnection(char* ip, int port)
 
 	/* bind it to all local addresses and pick any port number */
 
-	memset((char *)&myaddr, 0, sizeof(myaddr));
+  memset((char *) &myaddr, 0, sizeof(myaddr));
 	myaddr.sin_family = AF_INET;
 	myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	myaddr.sin_port = htons(0);
@@ -49,7 +48,7 @@ TcpConnection::TcpConnection(char* ip, int port)
 	/* For convenience, the host address is expressed as a numeric IP address */
 	/* that we will convert to a binary format via inet_aton */
 
-	memset((char *)&remaddr, 0, sizeof(remaddr));
+  memset((char *) &remaddr, 0, sizeof(remaddr));
 	remaddr.sin_family = AF_INET;
 	remaddr.sin_port = htons(SERVICE_PORT);
 	if (inet_pton(remaddr.sin_family, SERVER, &remaddr.sin_addr) == 0) {
@@ -61,7 +60,7 @@ TcpConnection::TcpConnection(char* ip, int port)
 	struct timeval tv;
 	tv.tv_sec = 0;
 	tv.tv_usec = 100000;
-	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv)) < 0) {
+  if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv)) < 0) {
 		perror("socket timeout set failed");
 		exit(1);
 	}
@@ -92,7 +91,7 @@ TcpConnection::TcpConnection(char* ip, int port)
 			/* construct ack for the packet just received*/
 			bool flags[] = { false, false, false, false, true, false, false, false, false };
 			seqNo++;
-			TcpPacket ackPacket(seqNo, AseqNo+1, flags, 1u, time(0));
+      TcpPacket ackPacket(seqNo, AseqNo + 1, flags, 1u, time(0));
 			if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 				perror("ackPacket");
 				exit(1);
@@ -102,8 +101,7 @@ TcpConnection::TcpConnection(char* ip, int port)
 			/* Free memory */
 			free(seqno);
 			free(ackno);
-		}
-		else {
+    } else {
 			perror("Ack not received");
 			exit(1);
 		}
@@ -114,6 +112,4 @@ TcpConnection::TcpConnection(char* ip, int port)
 }
 
 
-TcpConnection::~TcpConnection()
-{
-}
+TcpConnection::~TcpConnection() {}

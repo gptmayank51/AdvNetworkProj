@@ -23,7 +23,7 @@ void processStream(char *stream) {
   free(stream);
 }
 
-int receive(int argc, char **argv) {
+int main(int argc, char **argv) {
   struct sockaddr_in myaddr;  /* our address */
   struct sockaddr_in remaddr; /* remote address */
   socklen_t addrlen = sizeof(remaddr);        /* length of addresses */
@@ -61,14 +61,15 @@ int receive(int argc, char **argv) {
     printf("waiting on port %d\n", SERVICE_PORT);
     buf = (char *) malloc(PACKET_SIZE * sizeof(char));
     recvlen = recvfrom(fd, buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
+    // check the checksum
     bool* Aflags = TcpPacket::getFlags(buf);
 
     /* Check if Packet is a SYN packet */
     if (*(Aflags + SYNBIT)) {
-      printf("SYN msg received\n");
       int recdSeqNo = atoi(TcpPacket::getBytes(buf, 0, SEQUENCE_SIZE));
       nextExpectedSeqno = recdSeqNo + 1;
 
+      printf("SYN msg received with sequence number %d\n", recdSeqNo);
       /* construct SYN-ACK for the packet just received*/
       bool flags[] = { false, false, false, false, true, false, false, true, false };
       TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) RECEIVE_BUFFER_SIZE, time(0));
@@ -77,7 +78,7 @@ int receive(int argc, char **argv) {
         exit(1);
       }
       free(buf);
-      printf("SYN-ACK sent\n");
+      printf("SYN-ACK sent with ACK number %d\n", nextExpectedSeqno);
 
       buf = (char *) malloc(PACKET_SIZE * sizeof(char));
       recvlen = recvfrom(fd, buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
@@ -106,8 +107,8 @@ int receive(int argc, char **argv) {
       // handle FIN packet and terminate connection
     } else {
       // handle normal packet
-      printf("normal packet received\n");
       int recdSeqNo = atoi(TcpPacket::getBytes(buf, 0, SEQUENCE_SIZE));
+      printf("normal packet received with sequence number %d\n", recdSeqNo);
       if (recdSeqNo >= RECEIVE_BUFFER_SIZE + nextExpectedSeqno) {
         // receive buffer cannot handle so many packets, so we ignore the receipt of this packet
       } else {
@@ -118,11 +119,16 @@ int receive(int argc, char **argv) {
             while (atoi(TcpPacket::getBytes(receiveBuffer.top(), 0, SEQUENCE_SIZE)) == nextExpectedSeqno) {
               processStream(receiveBuffer.top());
               receiveBuffer.pop();
+              printf("Queue size = %d\n", receiveBuffer.size());
+              printf("Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.top(), 0, SEQUENCE_SIZE)));
               nextExpectedSeqno++;
             }
           }
         } else {
+          printf("Pushing packet number %d into queue\n", recdSeqNo);
           receiveBuffer.push(buf);
+          printf("Queue size = %d\n", receiveBuffer.size());
+          printf("Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.top(), 0, SEQUENCE_SIZE)));
         }
 
         // Generate ACK for received packet
@@ -132,8 +138,7 @@ int receive(int argc, char **argv) {
           perror("error in sending ackPacket");
           exit(1);
         }
-        printf("ACK sent\n");
-
+        printf("ACK sent expecting packet sequence number %d\n", nextExpectedSeqno);
       }
     }
   }

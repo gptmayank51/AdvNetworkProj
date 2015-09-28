@@ -8,7 +8,9 @@
 #include "port.h"
 #include "TcpPacket.h"
 #include "TcpConnection.h"
-
+#include <fstream>
+#include <queue>
+//using namespace std;
 
 #define BUFLEN 2048
 
@@ -16,7 +18,10 @@ int main(void) {
   /* Do 3 way handshake and decide on seq nos */
   TcpConnection connection = TcpConnection(SERVER, SERVICE_PORT);
   int seqNo = TcpConnection::seqNo;
+  std::queue<TcpPacket *> packetQueue;
 
+  std::ofstream myfile;
+  myfile.open("log.txt");
 
   /* Do further communication now */
   struct sockaddr_in myaddr, remaddr;
@@ -52,11 +57,11 @@ int main(void) {
   remaddr.sin_port = htons(SERVICE_PORT);
   if (inet_pton(remaddr.sin_family, SERVER, &remaddr.sin_addr) == 0) {
     fprintf(stderr, "inet_pton() failed\n");
-    exit(1);
+    perror("inet_pton() failed");
   }
 
   /* Set ssthreshold and congestion window size in terms of no of packets */
-  int ssThresh = 16;
+  int ssThresh = 64;
   int cwnd = 1;
   int lastAcknowledged = seqNo;	/* ACK no of the last packet received */
   bool slowStart = true;
@@ -68,23 +73,28 @@ int main(void) {
 
   /* Send one packet */
   bool flags[] = { false, false, false, false, false, false, false, false, false };
-  TcpPacket packet = TcpPacket(seqNo, 1, flags, cwnd, time(0));
+  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0));
   printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
   //sprintf_s(buf, tcpPacket.buf, i);
-  if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
     perror("sendto");
     exit(1);
   }
-
+  packetQueue.push(newPacket);
   
 
   /* now receive an acknowledgement from the server */
   while (true) {
 	  printf("Waiting for ACK\n");
 	  /* Set socket timeout */
+	  TcpPacket* packet = packetQueue.front();
+	  long long diff = time(0);
+	  char *endp;
+	  long long start  = _strtoi64(TcpPacket::getBytes(packet->buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endp, 10);
 	  struct timeval tv;
 	  tv.tv_sec = 0;
-	  tv.tv_usec = 3000000;
+	  tv.tv_usec = (long)(diff-start);					/* NEED TO CHECK IF ALWAYS POSITIVE? */
 	  fd_set fds;
 	  int n;
 
@@ -99,16 +109,19 @@ int main(void) {
 		  /* Restart transmission from last acknowledged packet */
 		  printf("Timeout Occurred :( \n");
 		  cwnd = 1;
-		  ssThresh = 16;
+		  //ssThresh = 64;
 		  slowStart = true;
 		  seqNo = lastAcknowledged;
-		  bool flags[] = { false, false, false, false, false, false, false, false, false };
-		  TcpPacket packet = TcpPacket(seqNo, 0, flags, 0, time(0));
-		  if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+		  //bool flags[] = { false, false, false, false, false, false, false, false, false };
+		  /*TcpPacket packet = TcpPacket(seqNo, 0, flags, 0, time(0));*/
+		  TcpPacket* packet = packetQueue.front();
+		  if (sendto(fd, packet->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 			  perror("sendto");
 			  exit(1);
 		  }
+		  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 		  printf("Retransmitted packet with seq no %d\n", seqNo);
+		  continue;
 	  }
 	  else if (n == -1)
 	  {
@@ -131,8 +144,21 @@ int main(void) {
         continue;
       }
       printf("Packet received with ACK no %d\n", ano);
+	  myfile << "A " << ano << "\n";
       free(ackno);
-
+	  
+	  /* Clear packets from front of queue */
+	  TcpPacket* packet = packetQueue.front();
+	  int packetNo = atoi(TcpPacket::getBytes(packet->buf, 0, SEQUENCE_SIZE));
+	  while (ano <= packetNo)
+	  {
+		  free(packet);
+		  packetQueue.pop();
+		  packet = packetQueue.front();
+		  packetNo = atoi(TcpPacket::getBytes(packet->buf, 0, SEQUENCE_SIZE));
+	  }
+	  /* packet now contains the packet at top of queue and packetNo is the sequence no of the packet */
+	  /* lastAcknowledged == ano during fast retransmit as well */
 	  if (!fastRetransmit && lastAcknowledged == ano) {
 		  dupAcks++;
 	  }
@@ -142,18 +168,22 @@ int main(void) {
 	  if (!fastRetransmit && dupAcks == 3) {
 		  fastRetransmit = true;
 		  lostAck = lastAcknowledged;
+		  if (lostAck != packetNo) {
+			  perror("Consistency error\n");
+			  exit(1);
+		  }
 		  cwnd = cwnd / 2;
 		  FTcwnd = cwnd;
 		  ssThresh = cwnd;
 		  dupAcks = 0;
-		  bool flags[] = { false, false, false, false, false, false, false, false, false };
-		  TcpPacket packet = TcpPacket(lostAck, 0, flags, 0, time(0));
 		  printf("FastRestransmit: Sending packet with seq no %d\n", lostAck);
+		  myfile << "F " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 		  //sprintf_s(buf, tcpPacket.buf, i);
-		  if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+		  if (sendto(fd, packet->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 			  perror("sendto");
 			  exit(1);
 		  }
+		  continue;
 	  }
 	  /* CHECK FOR WHAT HAPPENS IF TRIPLE DUP ACK IN SLOW START PHASE */
 
@@ -174,19 +204,27 @@ int main(void) {
 		  for (int i = 0; i < canBeSent; i++) {
 			  seqNo++;
 			  bool flags[] = { false, false, false, false, false, false, false, false, false };
-			  TcpPacket packet = TcpPacket(seqNo, 0, flags, 0, time(0));
+			  TcpPacket *newPacket = new TcpPacket(seqNo, 0, flags, 0, time(0));
 			  printf("FastRestransmit: Sending packet with seq no %d\n", seqNo);
+			  myfile << "F " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 			  //sprintf_s(buf, tcpPacket.buf, i);
-			  if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+			  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 				  perror("sendto");
 				  exit(1);
 			  }
+			  packetQueue.push(newPacket);
 		  }
 	  }
       else if (slowStart) {
         /* May be the ack was such that it acknowledged reception of so many packets that the
         increase in window size exceeds ssThresh */
-        cwnd = min(cwnd + (ano - lastAcknowledged), ssThresh);
+
+		  if (ano - lastAcknowledged > 10) {
+			  cwnd = cwnd + 1;
+		  }
+		  else {
+			  cwnd = min(cwnd + (ano - lastAcknowledged), ssThresh);
+		  }
         lastAcknowledged = ano;
         printf("Slow start: Window increased to %d where ssThresh is %d\n", cwnd, ssThresh);
         int packetsInAir = seqNo - (lastAcknowledged -1) ;
@@ -195,13 +233,15 @@ int main(void) {
         for (int i = 0; i < canBeSent; i++) {
           seqNo++;
           bool flags[] = { false, false, false, false, false, false, false, false, false };
-          TcpPacket packet = TcpPacket(seqNo, 0, flags, 0, time(0));
+          TcpPacket *newPacket = new TcpPacket(seqNo, 0, flags, 0, time(0));
           printf("Sending packet with seq no %d\n", seqNo);
+		  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
           //sprintf_s(buf, tcpPacket.buf, i);
-          if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+          if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
             perror("sendto");
             exit(1);
           }
+		  packetQueue.push(newPacket);
         }
         if (cwnd >= ssThresh) {
           slowStart = false;
@@ -223,13 +263,15 @@ int main(void) {
 		for (int i = 0; i < canBeSent; i++) {
 			seqNo++;
 			bool flags[] = { false, false, false, false, false, false, false, false, false };
-			TcpPacket packet = TcpPacket(seqNo, 0, flags, 0, time(0));
+			TcpPacket * newPacket =new TcpPacket(seqNo, 0, flags, 0, time(0));
 			printf("Sending packet with seq no %d\n", seqNo);
+			myfile << "C " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 			//sprintf_s(buf, tcpPacket.buf, i);
-			if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+			if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 				perror("sendto");
 				exit(1);
 			}
+			packetQueue.push(newPacket);
 		}
 
       }
@@ -240,5 +282,6 @@ int main(void) {
     }
   }
   closesocket(fd);
+  myfile.close();
   return 0;
 }

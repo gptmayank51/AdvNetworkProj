@@ -62,10 +62,11 @@ int main(int argc, char **argv) {
     
     // Check the checksum
     char* checksumSent = TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE, CHECKSUM_SIZE);
-    char* checkZeros = (char *) calloc(16, sizeof(char));
+    char* checkZeros = (char *) malloc(CHECKSUM_SIZE * sizeof(char));
+    memset(checkZeros, '\0', CHECKSUM_SIZE);
     TcpPacket::setCsum(buf, checkZeros);
     char* checksumRecd = TcpPacket::calculateCsum(buf);
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < CHECKSUM_SIZE; i++) {
       if (*(checksumRecd + i) != *(checksumSent + i)) {
         // Packet received has incorrect checksum, ACK the previous packet again
         bool flags[] = { false, false, false, false, true, false, false, true, false };
@@ -75,6 +76,7 @@ int main(int argc, char **argv) {
           exit(1);
         }
         printf("Checksum incorrect. ACK sent expecting packet sequence number %d\n", nextExpectedSeqno);
+        break;
       }
     }
 

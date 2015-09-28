@@ -3,6 +3,7 @@
 #include <string.h>
 #include <WinSock2.h>
 #include <Windows.h>
+#include <time.h>
 #include <WS2tcpip.h>
 #include "port.h"
 #include "TcpPacket.h"
@@ -66,11 +67,12 @@ int send(void) {
 	TcpPacket packet = TcpPacket(seqNo, 1, flags, cwnd, time(0));
 	printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 	//sprintf_s(buf, tcpPacket.buf, i);
-			if (sendto(fd, tcpPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+		if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 		perror("sendto");
 		exit(1);
 	}
-			/* now receive an acknowledgement from the server */
+
+	/* now receive an acknowledgement from the server */
 	while (true) {
 			recvlen = recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)&remaddr, &slen);
 			if (recvlen >= 0) {
@@ -125,7 +127,6 @@ int send(void) {
 				seqNo++;
 			
 			}
-			Sleep(100);
 	}
 	closesocket(fd);
 return 0;

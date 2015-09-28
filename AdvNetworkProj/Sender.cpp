@@ -94,7 +94,7 @@ int main(void) {
 	  long long start  = _strtoi64(TcpPacket::getBytes(packet->buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endp, 10);
 	  struct timeval tv;
 	  tv.tv_sec = 0;
-	  tv.tv_usec = (long)(diff-start);					/* NEED TO CHECK IF ALWAYS POSITIVE? */
+	  tv.tv_usec = 3000000 - (long)(diff-start);					/* NEED TO CHECK IF ALWAYS POSITIVE? */
 	  fd_set fds;
 	  int n;
 

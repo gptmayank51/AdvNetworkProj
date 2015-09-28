@@ -98,7 +98,7 @@ TcpConnection::TcpConnection(char* ip, int port)
 				exit(1);
 			}
 			printf("Three way handshake complete\n");
-			
+			seqNo++;
 			/* Free memory */
 			free(seqno);
 			free(ackno);

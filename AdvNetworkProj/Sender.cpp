@@ -4,6 +4,7 @@
 #include <WinSock2.h>
 #include <Windows.h>
 #include <WS2tcpip.h>
+#include <time.h>
 #include "port.h"
 #include "TcpPacket.h"
 #include "TcpConnection.h"
@@ -23,7 +24,6 @@ int main(void)
 	int fd, i, slen = sizeof(remaddr);
 	char buf[BUFLEN];	/* message buffer */
 	int recvlen;		/* # bytes in acknowledgement message */
-	
 	
 	/* create a socket */
 
@@ -54,26 +54,81 @@ int main(void)
 			exit(1);
 	}
 
-	/* now let's send the messages */
-	unsigned short csum = (unsigned short)123;
-	bool flags[] = { true, false, true, false, true, false, true, false, true };
-	TcpPacket tcpPacket(123U, 456u, flags, 2048u, 19238293801ull);
-	for (i = 0; i < 1; i++) {
-			printf("Sending packet %d to %s port %d\n", i, SERVER, SERVICE_PORT);
-			//sprintf_s(buf, tcpPacket.buf, i);
-			if (sendto(fd, tcpPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
-					perror("sendto");
+	/* Set ssthreshold and congestion window size in terms of no of packets */
+	int ssThresh = 16;
+	int cwnd = 1;
+	int lastAcknowledged = seqNo - 1;
+	bool slowStart = true;
+	int CAacksReceived = 0;
+
+
+	/* Send one packet */
+	bool flags[] = { false, false, false, false, false, false, false, false, false };
+	TcpPacket packet = TcpPacket(seqNo, 1, flags, cwnd, time(0));
+	printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+	//sprintf_s(buf, tcpPacket.buf, i);
+	if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+		perror("sendto");
+		exit(1);
+	}
+	
+
+	/* now let's wait for acks and send subsequent packets */
+	while (true) {
+			recvlen = recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)&remaddr, &slen);
+			if (recvlen >= 0) {
+				bool* Aflags = TcpPacket::getFlags(buf);
+				if (!*(Aflags + ACKBIT)) {
+					perror("ACK bit not set :o");
 					exit(1);
-			}
-			/* now receive an acknowledgement from the server */
-			while (true) {
-					recvlen = recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)&remaddr, &slen);
-					if (recvlen >= 0) {
-							buf[recvlen] = 0;	/* expect a printable string - terminate it */
-							printf("received message: \"%s\"\n", buf);
+				}
+				free(Aflags);
+				char* ackno = TcpPacket::getBytes(buf, SEQUENCE_SIZE, ACK_SIZE);
+				int ano = atoi(ackno);
+				/* If ack got reordered and we are getting an older ack */
+				if (ano < lastAcknowledged) {
+					continue;
+				}
+				printf("Packet received with ACK no %d", ano);
+				free(ackno);
+
+				/* IMPLEMENT TCP FLOW CONTROL */
+
+				if (slowStart) {
+					/* May be the ack was such that it acknowledged reception of so many packets that the 
+					increase in window size exceeds ssThresh */
+					cwnd = min(cwnd + (ano - lastAcknowledged), ssThresh);
+					lastAcknowledged = ano;
+					printf("Slow start: Window increased to %d where ssThresh is %d", cwnd, ssThresh);
+					int packetsInAir = seqNo - lastAcknowledged;
+					int canBeSent = cwnd - packetsInAir;
+					/* Send newer packets */
+					for (int i = 0; i < canBeSent; i++) {
+						seqNo++;
+						bool flags[] = { false, false, false, false, false, false, false, false, false };
+						TcpPacket packet = TcpPacket(seqNo, 0, flags, 0, time(0));
+						printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+						//sprintf_s(buf, tcpPacket.buf, i);
+						if (sendto(fd, packet.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+							perror("sendto");
+							exit(1);
+						}
 					}
-					Sleep(100);
+					if (cwnd >= ssThresh) {
+						slowStart = false;
+						CAacksReceived = 0;
+					}
+				}
+				else {
+					printf("Congestion avoidance phase");
+					lastAcknowledged = ano;
+				}
+
+				/* Increment the sequence no */
+				seqNo++;
+			
 			}
+			Sleep(100);
 	}
 	closesocket(fd);
 return 0;

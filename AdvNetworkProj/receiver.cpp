@@ -23,11 +23,11 @@ void processStream(char *stream) {
   ofstream fout;
   fout.open("received.txt", ios::binary | ios::app);
   int sizeOfData = atoi(TcpPacket::getBytes(stream, SEQUENCE_SIZE + ACK_SIZE+ FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE + TIMESTAMP_SIZE, DATA_SIZE_SIZE));
-  fout.write(TcpPacket::getBytes(stream, PACKET_SIZE - HEADER_SIZE, sizeOfData), sizeOfData);
+  fout.write(TcpPacket::getBytes(stream, CONTENT_SIZE, sizeOfData), sizeOfData);
   fout.close();
 }
 
-int receive(int argc, char **argv) {
+int main(int argc, char **argv) {
   struct sockaddr_in myaddr;  /* our address */
   struct sockaddr_in remaddr; /* remote address */
   socklen_t addrlen = sizeof(remaddr);        /* length of addresses */
@@ -36,7 +36,7 @@ int receive(int argc, char **argv) {
   int msgcnt = 0;         /* count # of messages we received */
   char *buf; /* receive buffer */
 
-  //Initialise winsock
+  //Initialise winsock  
   Network();
 
   /* create a UDP socket */
@@ -126,8 +126,21 @@ int receive(int argc, char **argv) {
       }
       free(buf);
       free(Aflags);
-    } else if (false /* insert condition for FIN here*/) {
-      // TODO: handle FIN packet and terminate connection
+    } else if (*(Aflags + FINBIT)) {
+      if (receiveBuffer.empty()) {
+        bool flags[] = { false, false, false, false, true, false, false, true, false };
+        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), 0, nullptr);
+        if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
+          perror("error in sending finAckPacket");
+          exit(1);
+        }
+        printf("ACK sent for FIN packet\n");
+        free(buf);
+        free(Aflags);
+        break;
+      } else {
+        receiveBuffer.push_back(buf);
+      }
     } else {
       // handle normal packet
       int recdSeqNo = atoi(TcpPacket::getBytes(buf, 0, SEQUENCE_SIZE));
@@ -141,6 +154,18 @@ int receive(int argc, char **argv) {
           nextExpectedSeqno++;
           while (!receiveBuffer.empty() && atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)) <= nextExpectedSeqno) {
             if (atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)) == nextExpectedSeqno) {
+              if (*(TcpPacket::getFlags(receiveBuffer.back()) + FINBIT)) {
+                bool flags[] = { false, false, false, false, true, false, false, true, false };
+                TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), 0, nullptr);
+                if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
+                  perror("error in sending finAckPacket");
+                  exit(1);
+                }
+                printf("ACK sent for FIN packet\n");
+                free(buf);
+                free(Aflags);
+                break;
+              }
               processStream(receiveBuffer.back());
               nextExpectedSeqno++;
             }
@@ -167,6 +192,7 @@ int receive(int argc, char **argv) {
           exit(1);
         }
         printf("ACK sent expecting packet sequence number %d\n", nextExpectedSeqno);
+        free(Aflags);
       }
     }
   }

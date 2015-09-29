@@ -6,7 +6,7 @@ void TcpPacket::setBufferValues(char* buf, int start, int size, char *value) {
   if (value == nullptr) {
     return;
   }
-	for (int currentDigit = start; currentDigit < start + size; currentDigit++) {
+  for (int currentDigit = start; currentDigit < start + size; currentDigit++) {
     *(buf + currentDigit) = *(value + currentDigit - start);
   }
 }
@@ -16,7 +16,7 @@ char* TcpPacket::calculateCsum(char* buf) {
   memset(csum, '\0', CHECKSUM_SIZE);
   for (int i = 0; i < PACKET_SIZE / 16; i++) {
     for (int j = 0; j < 16; j++) {
-      *(csum + j) = *(csum + j) ^ *(buf + 16*i + j);
+      *(csum + j) = *(csum + j) ^ *(buf + 16 * i + j);
     }
   }
   return csum;
@@ -93,7 +93,7 @@ TcpPacket::TcpPacket(
   _i64toa_s(timestamp, timestamp_buffer, TIMESTAMP_SIZE, 10);
   setBufferValues(buf, current_bit, TIMESTAMP_SIZE, timestamp_buffer);
   current_bit += TIMESTAMP_SIZE;
-  
+
   _itoa_s(data_size, unsigned_int_buffer, 10);
   setBufferValues(buf, current_bit, DATA_SIZE_SIZE, unsigned_int_buffer);
   current_bit += DATA_SIZE_SIZE;

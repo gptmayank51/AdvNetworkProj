@@ -10,7 +10,6 @@
 #include "TcpConnection.h"
 #include <fstream>
 #include <queue>
-//using namespace std;
 
 #define BUFLEN 2048
 
@@ -86,7 +85,7 @@ int main(void) {
 	  int lastSeqNo = -1;				/* SeqNo of last */
 
 	  /* Send one packet */
-	  char *buffer = (char *)malloc(sizeof(char)*toRead);
+    char *buffer = (char *) malloc(sizeof(char)*toRead);
 	  is.read(buffer, toRead);
 	  printf("File read\n");
 	  bool flags[] = { false, false, false, false, false, false, false, false, false };
@@ -202,7 +201,7 @@ int main(void) {
 				  if (!packetQueue.empty()) {
 					  packet = packetQueue.front();
 					  packetNo = atoi(TcpPacket::getBytes(packet->buf, 0, SEQUENCE_SIZE));
-			  } else {
+          } else {
 					  break;
 				  }
 			  }
@@ -279,7 +278,7 @@ int main(void) {
 						  seqNo++;
 						  printf("Sending FIN Packet indicating transmission complete\n");
 						  bool flags[] = { false, false, false, false, false, false, false, false, true };
-						  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), PACKET_SIZE, nullptr);
+              TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), PACKET_SIZE, nullptr);
 						  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 							  perror("sendto");
 							  exit(1);
@@ -328,7 +327,7 @@ int main(void) {
 						  seqNo++;
 						  printf("Sending FIN Packet indicating transmission complete\n");
 						  bool flags[] = { false, false, false, false, false, false, false, false, true };
-						  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), PACKET_SIZE, nullptr);
+              TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), PACKET_SIZE, nullptr);
 						  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 							  perror("sendto");
 							  exit(1);

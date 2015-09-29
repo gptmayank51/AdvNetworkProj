@@ -90,7 +90,7 @@ TcpConnection::TcpConnection(char* ip, int port) {
       /* construct ack for the packet just received*/
       bool flags[] = { false, false, false, false, true, false, false, false, false };
       seqNo++;
-	  TcpPacket ackPacket(seqNo, AseqNo + 1, flags, 1u, time(0), PACKET_SIZE, nullptr);
+      TcpPacket ackPacket(seqNo, AseqNo + 1, flags, 1u, time(0), PACKET_SIZE, nullptr);
       if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
         perror("ackPacket");
         exit(1);

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <fstream>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -19,7 +20,7 @@ bool comparator(char* lhs, char* rhs) {
 }
 
 void processStream(char *stream) {
-  free(stream);
+  // TODO: Write the contents of the stream received into the file
 }
 
 int send(int argc, char **argv) {
@@ -70,7 +71,7 @@ int send(int argc, char **argv) {
       if (*(checksumRecd + i) != *(checksumSent + i)) {
         // Packet received has incorrect checksum, ACK the previous packet again
         bool flags[] = { false, false, false, false, true, false, false, true, false };
-        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0));
+        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), nullptr);
         if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
           perror("error in sending ackPacket");
           exit(1);
@@ -90,7 +91,7 @@ int send(int argc, char **argv) {
       printf("SYN msg received with sequence number %d\n", recdSeqNo);
       /* construct SYN-ACK for the packet just received*/
       bool flags[] = { false, false, false, false, true, false, false, true, false };
-      TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) RECEIVE_BUFFER_SIZE, time(0));
+      TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) RECEIVE_BUFFER_SIZE, time(0), nullptr);
       if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
         perror("error in sending ackPacket");
         exit(1);
@@ -132,12 +133,14 @@ int send(int argc, char **argv) {
       } else {
         if (recdSeqNo == nextExpectedSeqno) {
           processStream(buf);
+          free(buf);
           nextExpectedSeqno++;
           while (!receiveBuffer.empty() && atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)) <= nextExpectedSeqno) {
-            if (atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)) <= nextExpectedSeqno == nextExpectedSeqno) {
+            if (atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)) == nextExpectedSeqno) {
+              processStream(receiveBuffer.back());
               nextExpectedSeqno++;
             }
-            processStream(receiveBuffer.back());
+            free(receiveBuffer.back());
             receiveBuffer.pop_back();
             printf("Queue size = %d\n", receiveBuffer.size());
             if (!receiveBuffer.empty()) {
@@ -154,7 +157,7 @@ int send(int argc, char **argv) {
 
         // Generate ACK for received packet
         bool flags[] = { false, false, false, false, true, false, false, true, false };
-        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0));
+        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), nullptr);
         if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
           perror("error in sending ackPacket");
           exit(1);

@@ -83,6 +83,7 @@ int main(void) {
 	  int lostAck = -1;				/* ACK no of the lost packet indicated by triple dup ack */
 	  int dupAcks = 0;
 	  int FTcwnd = -1;				/* cnwd when entering the congestion avoidance phase */
+	  int lastSeqNo = -1;				/* SeqNo of last */
 
 	  /* Send one packet */
 	  char *buffer = (char *)malloc(sizeof(char)*toRead);
@@ -114,7 +115,8 @@ int main(void) {
 			  perror("sendto");
 			  exit(1);
 		  }
-		  printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+		  lastSeqNo = seqNo;
+		  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 		  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 		  packetQueue.push(newPacket);
 	  }
@@ -184,6 +186,11 @@ int main(void) {
 			  printf("Packet received with ACK no %d\n", ano);
 			  myfile << "A " << ano << "\n";
 			  free(ackno);
+			  // Check if this is the last ACK expected.
+			  if (fileComplete && ano == lastSeqNo) {
+				  printf("All packets acknowledged! Yay!!! :D :D :D");
+				  break;
+			  }
 
 			  /* Clear packets from front of queue */
 			  TcpPacket* packet = packetQueue.front();
@@ -195,7 +202,7 @@ int main(void) {
 				  if (!packetQueue.empty()) {
 					  packet = packetQueue.front();
 					  packetNo = atoi(TcpPacket::getBytes(packet->buf, 0, SEQUENCE_SIZE));
-          } else {
+			  } else {
 					  break;
 				  }
 			  }
@@ -272,12 +279,13 @@ int main(void) {
 						  seqNo++;
 						  printf("Sending FIN Packet indicating transmission complete");
 						  bool flags[] = { false, false, false, false, false, false, false, false, true };
-              TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), PACKET_SIZE, nullptr);
+						  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), PACKET_SIZE, nullptr);
 						  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 							  perror("sendto");
 							  exit(1);
 						  }
-						  printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+						  lastSeqNo = seqNo;
+						  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 						  myfile << "F " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 						  packetQueue.push(newPacket);
 						  break;
@@ -320,12 +328,13 @@ int main(void) {
 						  seqNo++;
 						  printf("Sending FIN Packet indicating transmission complete");
 						  bool flags[] = { false, false, false, false, false, false, false, false, true };
-              TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), PACKET_SIZE, nullptr);
+						  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), PACKET_SIZE, nullptr);
 						  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 							  perror("sendto");
 							  exit(1);
 						  }
-						  printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+						  lastSeqNo = seqNo;
+						  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 						  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 						  packetQueue.push(newPacket);
 						  break;
@@ -377,7 +386,8 @@ int main(void) {
 							  perror("sendto");
 							  exit(1);
 						  }
-						  printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+						  lastSeqNo = seqNo;
+						  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 						  myfile << "C " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 						  packetQueue.push(newPacket);
 						  break;

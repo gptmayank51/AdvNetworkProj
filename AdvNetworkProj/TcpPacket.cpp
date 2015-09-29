@@ -97,8 +97,8 @@ TcpPacket::TcpPacket(
   _itoa_s(data_size, unsigned_int_buffer, 10);
   setBufferValues(buf, current_bit, DATA_SIZE_SIZE, unsigned_int_buffer);
   current_bit += DATA_SIZE_SIZE;
-
-  setBufferValues(buf, current_bit, PACKET_SIZE - HEADER_SIZE, content);
+  printf("Header size %d", HEADER_SIZE);
+  setBufferValues(buf, current_bit, data_size, content);
 
   // Calculate checksum and set it
   char* csum = calculateCsum(buf);

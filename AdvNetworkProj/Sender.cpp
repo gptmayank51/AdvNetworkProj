@@ -85,14 +85,14 @@ int main(void) {
 	  int FTcwnd = -1;				/* cnwd when entering the congestion avoidance phase */
 
 	  /* Send one packet */
-	  char *buffer = new char[toRead];
+	  char *buffer = (char *)malloc(sizeof(char)*toRead);
 	  is.read(buffer, toRead);
 	  printf("File read\n");
 	  bool flags[] = { false, false, false, false, false, false, false, false, false };
 	  TcpPacket newPacket = TcpPacket(seqNo, 1, flags, cwnd, time(0), toRead, buffer);
 	  printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 	  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
-	  
+	  free(buffer);
 	  bytestread += toRead;
 	  toRead = min(length - bytestread, PACKET_SIZE - HEADER_SIZE);
 	  //free(buffer);

@@ -14,7 +14,7 @@
 
 #define BUFLEN 2048
 
-int main(void) {
+int send(void) {
   /* Do 3 way handshake and decide on seq nos */
   TcpConnection connection = TcpConnection(SERVER, SERVICE_PORT);
   int seqNo = TcpConnection::seqNo;

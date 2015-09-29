@@ -16,7 +16,7 @@ char* TcpPacket::calculateCsum(char* buf) {
   memset(csum, '\0', CHECKSUM_SIZE);
   for (int i = 0; i < PACKET_SIZE / 16; i++) {
     for (int j = 0; j < 16; j++) {
-      *(csum + j) = *(csum + j) ^ *(buf + i + j);
+      *(csum + j) = *(csum + j) ^ *(buf + 16*i + j);
     }
   }
   return csum;

@@ -12,7 +12,8 @@ void TcpPacket::setBufferValues(char* buf, int start, int size, char * value) {
 }
 
 char* TcpPacket::calculateCsum(char* buf) {
-  char* csum = (char *) malloc(sizeof(char) * 16);
+  char* csum = (char *) malloc(sizeof(char) * CHECKSUM_SIZE);
+  memset(csum, '\0', CHECKSUM_SIZE);
   for (int i = 0; i < PACKET_SIZE / 16; i++) {
     for (int j = 0; j < 16; j++) {
       *(csum + j) = *(csum + j) ^ *(buf + i + j);

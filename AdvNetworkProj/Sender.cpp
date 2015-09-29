@@ -225,7 +225,7 @@ int main(void) {
 				  ssThresh = cwnd;
 				  dupAcks = 0;
 				  printf("FastRestransmit: Re-Sending packet with seq no %d\n", lostAck);
-				  myfile << "F " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
+				  myfile << "F " << lostAck << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 				  //sprintf_s(buf, tcpPacket.buf, i);
 				  if (sendto(fd, packet->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 					  perror("sendto");
@@ -237,6 +237,7 @@ int main(void) {
 
 			  if (fastRetransmit && ano > lostAck) {
 				  fastRetransmit = false;
+				  CAacksReceived = 0;
 				  cwnd = FTcwnd;
 				  lostAck = -1;
 			  }
@@ -249,7 +250,7 @@ int main(void) {
 			  }
 
 			  if (fastRetransmit) {
-				  //cwnd++;
+				  cwnd++;
 				  int packetsInAir = seqNo - (lastAcknowledged - 1);
 				  int canBeSent = cwnd - packetsInAir;
 				  /* Send newer packets if you can send more packets */
@@ -310,7 +311,7 @@ int main(void) {
 					  is.read(buffer, toRead);
 					  bool flags[] = { false, false, false, false, false, false, false, false, false };
 					  TcpPacket *newPacket = new TcpPacket(seqNo, 0, flags, 0, time(0), toRead, buffer);
-					  printf("Sending packet with seq no %d\n", seqNo);
+					  printf("Sending packet of size %d with seq no %d\n",toRead, seqNo);
 					  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 					  bytestread += toRead;
 					  toRead = min(length - bytestread, CONTENT_SIZE);
@@ -352,7 +353,7 @@ int main(void) {
 					  printf("It's time to increase congestion window to %d\n", cwnd);
 				  }
 				  lastAcknowledged = ano;
-				  printf("Congestion avoidance: Window is %d & ssThresh is %d\n", cwnd, ssThresh);
+				  printf("Congestion avoidance: CAacksRecieved is %d, Window is %d & ssThresh is %d\n",CAacksReceived, cwnd, ssThresh);
 				  int packetsInAir = seqNo - (lastAcknowledged - 1);
 				  int canBeSent = cwnd - packetsInAir;
 				  /* Send newer packets */

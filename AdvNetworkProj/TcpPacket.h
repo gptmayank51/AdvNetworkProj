@@ -7,14 +7,15 @@
 #define CHECKSUM_SIZE 4
 #define TIMESTAMP_SIZE 14
 #define DATA_SIZE_SIZE 5
-#define HEADER_SIZE SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE + TIMESTAMP_SIZE
-class TcpPacket {
-  static void setBufferValues(char* buf, int start, int end, char * value);
-
-public:
+#define HEADER_SIZE SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE + TIMESTAMP_SIZE + DATA_SIZE_SIZE
 #define ACKBIT 4
 #define SYNBIT 7
 #define FINBIT 8
+
+class TcpPacket {
+  static void setBufferValues(char* buf, int start, int end, char* value);
+
+public:
   static char* calculateCsum(char* buf);
   static void setCsum(char*, char*);
   static bool* getFlags(char* buf);
@@ -26,7 +27,7 @@ public:
     bool flags[],
     unsigned int window_size,
     unsigned long long int timestamp,
-	unsigned int data_size,
-	  char* content);
+    unsigned int data_size,
+    char* content);
   ~TcpPacket();
 };

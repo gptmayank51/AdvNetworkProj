@@ -20,10 +20,14 @@ bool comparator(char* lhs, char* rhs) {
 }
 
 void processStream(char *stream) {
-  // TODO: Write the contents of the stream received into the file
+  ofstream fout;
+  fout.open("received.txt", ios::binary | ios::app);
+  int sizeOfData = atoi(TcpPacket::getBytes(stream, SEQUENCE_SIZE + ACK_SIZE+ FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE + TIMESTAMP_SIZE, DATA_SIZE_SIZE));
+  fout.write(TcpPacket::getBytes(stream, PACKET_SIZE - HEADER_SIZE, sizeOfData), sizeOfData);
+  fout.close();
 }
 
-int send(int argc, char **argv) {
+int main(int argc, char **argv) {
   struct sockaddr_in myaddr;  /* our address */
   struct sockaddr_in remaddr; /* remote address */
   socklen_t addrlen = sizeof(remaddr);        /* length of addresses */

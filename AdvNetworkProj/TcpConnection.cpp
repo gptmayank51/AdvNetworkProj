@@ -19,8 +19,7 @@ TcpConnection::TcpConnection(char* ip, int port) {
   char buf[BUFLEN];	/* message buffer */
   int recvlen;		/* # bytes in acknowledgement message */
 
-
-  srand(time(NULL));
+  srand((int) time(NULL));
   bool flags[] = { false, false, false, false, false, false, false, true, false };
   seqNo = rand() % 10000;
   TcpPacket synPacket(seqNo, rand(), flags, 1u, time(0), PACKET_SIZE, nullptr);

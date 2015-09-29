@@ -3,7 +3,9 @@
 #include <string>
 
 void TcpPacket::setBufferValues(char* buf, int start, int size, char * value) {
-  for (int currentDigit = start; currentDigit < start + size; currentDigit++) {
+	if (value == nullptr)
+		return;
+	for (int currentDigit = start; currentDigit < start + size; currentDigit++) {
     buf[currentDigit] = *(value + currentDigit - start);
   }
 }
@@ -51,7 +53,8 @@ TcpPacket::TcpPacket(
   unsigned int ack_number,
   bool flags[],
   unsigned int window_size,
-  unsigned long long int timestamp) {
+  unsigned long long int timestamp,
+  char * content) {
   buf = (char *) malloc(sizeof(char)*PACKET_SIZE);
   memset(buf, 0, PACKET_SIZE);
   char unsigned_int_buffer[SEQUENCE_SIZE];
@@ -87,8 +90,8 @@ TcpPacket::TcpPacket(
   _i64toa_s(timestamp, timestamp_buffer, TIMESTAMP_SIZE, 10);
   setBufferValues(buf, current_bit, TIMESTAMP_SIZE, timestamp_buffer);
   current_bit += TIMESTAMP_SIZE;
-
-  // TODO: Add data into the packet
+  
+  setBufferValues(buf, current_bit, PACKET_SIZE - HEADER_SIZE, content);
 
   // Calculate checksum and set it
   char* csum = calculateCsum(buf);

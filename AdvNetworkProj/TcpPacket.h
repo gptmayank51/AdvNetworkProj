@@ -6,6 +6,7 @@
 #define WINDOW_SIZE_SIZE 11
 #define CHECKSUM_SIZE 4
 #define TIMESTAMP_SIZE 14
+#define HEADER_SIZE SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE + TIMESTAMP_SIZE
 class TcpPacket {
   static void setBufferValues(char* buf, int start, int end, char * value);
 
@@ -22,6 +23,7 @@ public:
     unsigned int ack_number,
     bool flags[],
     unsigned int window_size,
-    unsigned long long int timestamp);
+    unsigned long long int timestamp,
+	  char* content);
   ~TcpPacket();
 };

@@ -22,7 +22,7 @@ bool comparator(char* lhs, char* rhs) {
 void processStream(char *stream) {
   ofstream fout;
   fout.open("received.txt", ios::binary | ios::app);
-  int sizeOfData = atoi(TcpPacket::getBytes(stream, SEQUENCE_SIZE + ACK_SIZE+ FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE + TIMESTAMP_SIZE, DATA_SIZE_SIZE));
+  int sizeOfData = atoi(TcpPacket::getBytes(stream, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE + TIMESTAMP_SIZE, DATA_SIZE_SIZE));
   fout.write(TcpPacket::getBytes(stream, CONTENT_SIZE, sizeOfData), sizeOfData);
   fout.close();
 }

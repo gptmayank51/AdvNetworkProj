@@ -14,7 +14,7 @@
 
 #define BUFLEN 2048
 
-int send(void) {
+int main(void) {
   /* Do 3 way handshake and decide on seq nos */
   TcpConnection connection = TcpConnection(SERVER, SERVICE_PORT);
   int seqNo = TcpConnection::seqNo;
@@ -23,7 +23,7 @@ int send(void) {
   std::ofstream myfile;
   myfile.open("log.txt");
 
-  std::ifstream is("test.txt", std::ifstream::binary);
+  std::ifstream is("test.txt");
   if (is) {
 
 	  int bytestread = 0;
@@ -188,7 +188,7 @@ int send(void) {
 			  free(ackno);
 			  // Check if this is the last ACK expected.
 			  if (fileComplete && ano == lastSeqNo) {
-				  printf("All packets acknowledged! Yay!!! :D :D :D");
+				  printf("All packets acknowledged! Yay!!! :D :D :D\n");
 				  break;
 			  }
 
@@ -245,7 +245,7 @@ int send(void) {
 			  /* IMPLEMENT TCP FLOW CONTROL */
 
 			  if (fileComplete) {
-				  printf("File completely sent, no more packets to send. Waiting for acks");
+				  printf("File completely sent, no more packets to send. Waiting for acks.\n");
 				  continue;
 			  }
 
@@ -277,7 +277,7 @@ int send(void) {
 					  if (toRead == 0) {
 						  fileComplete = true;
 						  seqNo++;
-						  printf("Sending FIN Packet indicating transmission complete");
+						  printf("Sending FIN Packet indicating transmission complete\n");
 						  bool flags[] = { false, false, false, false, false, false, false, false, true };
 						  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), PACKET_SIZE, nullptr);
 						  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
@@ -326,7 +326,7 @@ int send(void) {
 					  if (toRead == 0) {
 						  fileComplete = true;
 						  seqNo++;
-						  printf("Sending FIN Packet indicating transmission complete");
+						  printf("Sending FIN Packet indicating transmission complete\n");
 						  bool flags[] = { false, false, false, false, false, false, false, false, true };
 						  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), PACKET_SIZE, nullptr);
 						  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
@@ -379,7 +379,7 @@ int send(void) {
 					  if (toRead == 0) {
 						  fileComplete = true;
 						  seqNo++;
-						  printf("Sending FIN Packet indicating transmission complete");
+						  printf("Sending FIN Packet indicating transmission complete\n");
 						  bool flags[] = { false, false, false, false, false, false, false, false, true };
 						  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), PACKET_SIZE, nullptr);
 						  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {

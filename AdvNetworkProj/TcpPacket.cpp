@@ -2,12 +2,12 @@
 #include <stdio.h>
 #include <string>
 
-void TcpPacket::setBufferValues(char* buf, int start, int size, char * value) {
+void TcpPacket::setBufferValues(char* buf, int start, int size, char *value) {
   if (value == nullptr) {
     return;
   }
 	for (int currentDigit = start; currentDigit < start + size; currentDigit++) {
-    buf[currentDigit] = *(value + currentDigit - start);
+    *(buf + currentDigit) = *(value + currentDigit - start);
   }
 }
 

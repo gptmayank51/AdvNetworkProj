@@ -13,6 +13,7 @@ class TcpPacket {
 public:
 #define ACKBIT 4
 #define SYNBIT 7
+#define FINBIT 8
   static char* calculateCsum(char* buf);
   static void setCsum(char*, char*);
   static bool* getFlags(char* buf);

@@ -13,17 +13,17 @@
 
 #define RECEIVE_BUFFER_SIZE 2048
 
-using namespace std;
 
 bool comparator(char* lhs, char* rhs) {
   return atoi(TcpPacket::getBytes(lhs, 0, SEQUENCE_SIZE)) > atoi(TcpPacket::getBytes(rhs, 0, SEQUENCE_SIZE));
 }
 
 void processStream(char *stream) {
-  ofstream fout;
-  fout.open("received.txt", ios::binary | ios::app);
+  std::ofstream fout;
+  fout.open("received.txt", std::ios::app);
   int sizeOfData = atoi(TcpPacket::getBytes(stream, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE + TIMESTAMP_SIZE, DATA_SIZE_SIZE));
-  fout.write(TcpPacket::getBytes(stream, CONTENT_SIZE, sizeOfData), sizeOfData);
+  printf("Writing %d bytes of data to file\n", sizeOfData);
+  fout.write(TcpPacket::getBytes(stream, HEADER_SIZE, sizeOfData), sizeOfData);
   fout.close();
 }
 
@@ -35,6 +35,10 @@ int main(int argc, char **argv) {
   int fd;             /* our socket */
   int msgcnt = 0;         /* count # of messages we received */
   char *buf; /* receive buffer */
+
+  if (remove("received.txt") != 0) {
+    perror("Error in deleting the file\n");
+  }
 
   //Initialise winsock  
   Network();
@@ -57,7 +61,7 @@ int main(int argc, char **argv) {
   }
 
   int sendSeqNo = rand() % 1000;
-  vector<char*> receiveBuffer;
+  std::vector<char*> receiveBuffer;
   int nextExpectedSeqno = 0;
   /* now loop, receiving data and printing what we received */
   for (;;) {

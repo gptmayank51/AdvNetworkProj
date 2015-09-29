@@ -71,7 +71,7 @@ int send(int argc, char **argv) {
       if (*(checksumRecd + i) != *(checksumSent + i)) {
         // Packet received has incorrect checksum, ACK the previous packet again
         bool flags[] = { false, false, false, false, true, false, false, true, false };
-        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), nullptr);
+        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), 0, (char*) nullptr);
         if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
           perror("error in sending ackPacket");
           exit(1);
@@ -91,7 +91,7 @@ int send(int argc, char **argv) {
       printf("SYN msg received with sequence number %d\n", recdSeqNo);
       /* construct SYN-ACK for the packet just received*/
       bool flags[] = { false, false, false, false, true, false, false, true, false };
-      TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) RECEIVE_BUFFER_SIZE, time(0), nullptr);
+      TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) RECEIVE_BUFFER_SIZE, time(0), 0, nullptr);
       if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
         perror("error in sending ackPacket");
         exit(1);
@@ -157,7 +157,7 @@ int send(int argc, char **argv) {
 
         // Generate ACK for received packet
         bool flags[] = { false, false, false, false, true, false, false, true, false };
-        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), nullptr);
+        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), 0, nullptr);
         if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
           perror("error in sending ackPacket");
           exit(1);

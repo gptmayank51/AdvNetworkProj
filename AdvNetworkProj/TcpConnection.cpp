@@ -23,7 +23,7 @@ TcpConnection::TcpConnection(char* ip, int port) {
   srand(time(NULL));
   bool flags[] = { false, false, false, false, false, false, false, true, false };
   seqNo = rand() % 10000;
-  TcpPacket synPacket(seqNo, rand(), flags, 1u, time(0),nullptr);
+  TcpPacket synPacket(seqNo, rand(), flags, 1u, time(0), PACKET_SIZE, nullptr);
 
   /* Initialize Network */
   Network network = Network();
@@ -91,7 +91,7 @@ TcpConnection::TcpConnection(char* ip, int port) {
       /* construct ack for the packet just received*/
       bool flags[] = { false, false, false, false, true, false, false, false, false };
       seqNo++;
-	  TcpPacket ackPacket(seqNo, AseqNo + 1, flags, 1u, time(0), nullptr);
+	  TcpPacket ackPacket(seqNo, AseqNo + 1, flags, 1u, time(0), PACKET_SIZE, nullptr);
       if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
         perror("ackPacket");
         exit(1);

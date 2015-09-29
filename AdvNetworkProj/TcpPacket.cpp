@@ -54,6 +54,7 @@ TcpPacket::TcpPacket(
   bool flags[],
   unsigned int window_size,
   unsigned long long int timestamp,
+  unsigned int data_size,
   char * content) {
   buf = (char *) malloc(sizeof(char)*PACKET_SIZE);
   memset(buf, 0, PACKET_SIZE);
@@ -91,6 +92,10 @@ TcpPacket::TcpPacket(
   setBufferValues(buf, current_bit, TIMESTAMP_SIZE, timestamp_buffer);
   current_bit += TIMESTAMP_SIZE;
   
+  _itoa_s(data_size, unsigned_int_buffer, 10);
+  setBufferValues(buf, current_bit, DATA_SIZE_SIZE, unsigned_int_buffer);
+  current_bit += DATA_SIZE_SIZE;
+
   setBufferValues(buf, current_bit, PACKET_SIZE - HEADER_SIZE, content);
 
   // Calculate checksum and set it

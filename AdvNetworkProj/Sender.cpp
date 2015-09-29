@@ -34,7 +34,7 @@ int main(void) {
 	  is.seekg(0, is.beg);
 	  printf("Reading file of length %d", length);
 
-	  int toRead = min(length - bytestread, PACKET_SIZE - HEADER_SIZE);
+	  unsigned int toRead = min(length - bytestread, PACKET_SIZE - HEADER_SIZE);
 
 	  /* Do further communication now */
 	  struct sockaddr_in myaddr, remaddr;
@@ -87,13 +87,14 @@ int main(void) {
 	  /* Send one packet */
 	  char *buffer = new char[toRead];
 	  is.read(buffer, toRead);
-	  bytestread += toRead;
-	  toRead = min(length - bytestread, PACKET_SIZE - HEADER_SIZE);
 	  
 	  bool flags[] = { false, false, false, false, false, false, false, false, false };
-	  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0),buffer);
+	  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), toRead,buffer);
 	  printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 	  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
+	  
+	  bytestread += toRead;
+	  toRead = min(length - bytestread, PACKET_SIZE - HEADER_SIZE);
 	  free(buffer);
 	  //sprintf_s(buf, tcpPacket.buf, i);
 	  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
@@ -108,7 +109,7 @@ int main(void) {
 		  seqNo++;
 		  printf("Sending FIN Packet indicating transmission complete");
 		  bool flags[] = { false, false, false, false, false, false, false, false, true };
-		  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), nullptr);
+		  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), PACKET_SIZE,nullptr);
 		  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 			  perror("sendto");
 			  exit(1);
@@ -253,13 +254,13 @@ int main(void) {
 					  seqNo++;
 					  char *buffer = new char[toRead];
 					  is.read(buffer, toRead);
+					  bool flags[] = { false, false, false, false, false, false, false, false, false };
+					  TcpPacket *newPacket = new TcpPacket(seqNo, 0, flags, 0, time(0),toRead,buffer);
+					  printf("FastRestransmit: Sending packet with seq no %d\n", seqNo);
+					  myfile << "F " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 					  bytestread += toRead;
 					  toRead = min(length - bytestread, PACKET_SIZE - HEADER_SIZE);
 
-					  bool flags[] = { false, false, false, false, false, false, false, false, false };
-					  TcpPacket *newPacket = new TcpPacket(seqNo, 0, flags, 0, time(0),buffer);
-					  printf("FastRestransmit: Sending packet with seq no %d\n", seqNo);
-					  myfile << "F " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
 					  free(buffer);
 					  //sprintf_s(buf, tcpPacket.buf, i);
 					  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
@@ -274,7 +275,7 @@ int main(void) {
 						  seqNo++;
 						  printf("Sending FIN Packet indicating transmission complete");
 						  bool flags[] = { false, false, false, false, false, false, false, false, true };
-						  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), nullptr);
+						  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0),PACKET_SIZE, nullptr);
 						  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 							  perror("sendto");
 							  exit(1);
@@ -305,13 +306,13 @@ int main(void) {
 					  seqNo++;
 					  char *buffer = new char[toRead];
 					  is.read(buffer, toRead);
-					  bytestread += toRead;
-					  toRead = min(length - bytestread, PACKET_SIZE - HEADER_SIZE);
-
+					  
 					  bool flags[] = { false, false, false, false, false, false, false, false, false };
-					  TcpPacket *newPacket = new TcpPacket(seqNo, 0, flags, 0, time(0),buffer);
+					  TcpPacket *newPacket = new TcpPacket(seqNo, 0, flags, 0, time(0), toRead, buffer);
 					  printf("Sending packet with seq no %d\n", seqNo);
 					  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
+					  bytestread += toRead;
+					  toRead = min(length - bytestread, PACKET_SIZE - HEADER_SIZE);
 					  free(buffer);
 					  //sprintf_s(buf, tcpPacket.buf, i);
 					  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
@@ -325,7 +326,7 @@ int main(void) {
 						  seqNo++;
 						  printf("Sending FIN Packet indicating transmission complete");
 						  bool flags[] = { false, false, false, false, false, false, false, false, true };
-						  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), nullptr);
+						  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0),PACKET_SIZE, nullptr);
 						  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 							  perror("sendto");
 							  exit(1);
@@ -358,13 +359,13 @@ int main(void) {
 					  seqNo++;
 					  char *buffer = new char[toRead];
 					  is.read(buffer, toRead);
-					  bytestread += toRead;
-					  toRead = min(length - bytestread, PACKET_SIZE - HEADER_SIZE);
-
+					  
 					  bool flags[] = { false, false, false, false, false, false, false, false, false };
-					  TcpPacket * newPacket = new TcpPacket(seqNo, 0, flags, 0, time(0),buffer);
+					  TcpPacket * newPacket = new TcpPacket(seqNo, 0, flags, 0, time(0), toRead, buffer);
 					  printf("Sending packet with seq no %d\n", seqNo);
 					  myfile << "C " << seqNo << " " << cwnd << " " << ssThresh << " " << time(0) << "\n";
+					  bytestread += toRead;
+					  toRead = min(length - bytestread, PACKET_SIZE - HEADER_SIZE);
 					  free(buffer);
 					  //sprintf_s(buf, tcpPacket.buf, i);
 					  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
@@ -378,7 +379,7 @@ int main(void) {
 						  seqNo++;
 						  printf("Sending FIN Packet indicating transmission complete");
 						  bool flags[] = { false, false, false, false, false, false, false, false, true };
-						  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), nullptr);
+						  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, time(0), PACKET_SIZE, nullptr);
 						  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 							  perror("sendto");
 							  exit(1);

@@ -29,7 +29,7 @@ int main(void) {
 
   std::ofstream myfile;
   myfile.open("log.txt");
-  
+
 
   std::ifstream is("test.mp3",std::ios::binary);
   if (is) {
@@ -94,7 +94,7 @@ int main(void) {
 	  int lastSeqNo = -1;				/* SeqNo of last */
 	  int recover = -1;				/* SeqNo of packet when entering Fast Retransmit */
 	  bool same = false;
-	  
+
 
 	  struct timeb startT, endT;
 	  ftime(&startT);
@@ -256,7 +256,7 @@ int main(void) {
 			  }
 			  if (dupAcks == 3) {	/* dupacks is 2 on 3 duplicate acks */
 				  if (!fastRetransmit) {
-					  fastRetransmit = true;
+				  fastRetransmit = true;
 					  recover = seqNo;
 					  ssThresh = max(cwnd / 2, 2);
 					  cwnd = ssThresh + 3;

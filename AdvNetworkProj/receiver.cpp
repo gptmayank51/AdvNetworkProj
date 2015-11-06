@@ -20,14 +20,16 @@ bool comparator(char* lhs, char* rhs) {
 
 void processStream(char *stream) {
   std::ofstream fout;
-  fout.open("received.txt", std::ios::app);
+  fout.open("received.mp3", std::ios::app | std::ios::binary);
   int sizeOfData = atoi(TcpPacket::getBytes(stream, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE + TIMESTAMP_SIZE, DATA_SIZE_SIZE));
   printf("Writing %d bytes of data to file\n", sizeOfData);
-  fout.write(TcpPacket::getBytes(stream, HEADER_SIZE, sizeOfData), sizeOfData);
+  char* content = TcpPacket::getBytes(stream, HEADER_SIZE, sizeOfData);
+  fout.write(content, sizeOfData);
+  free(content);
   fout.close();
 }
 
-int receive(int argc, char **argv) {
+int main(int argc, char **argv) {
   struct sockaddr_in myaddr;  /* our address */
   struct sockaddr_in remaddr; /* remote address */
   socklen_t addrlen = sizeof(remaddr);        /* length of addresses */
@@ -35,8 +37,10 @@ int receive(int argc, char **argv) {
   int fd;             /* our socket */
   int msgcnt = 0;         /* count # of messages we received */
   char *buf; /* receive buffer */
+  std::ofstream myfile;
+  myfile.open("write.txt");
 
-  if (remove("received.txt") != 0) {
+  if (remove("received.mp3") != 0) {
     perror("Error in deleting the file\n");
   }
 
@@ -90,6 +94,7 @@ int receive(int argc, char **argv) {
     }
 
     bool* Aflags = TcpPacket::getFlags(buf);
+    myfile << "R " << TcpPacket::getBytes(buf, 0, SEQUENCE_SIZE) << std::endl;
 
     /* Check if Packet is a SYN packet */
     if (*(Aflags + SYNBIT)) {
@@ -153,6 +158,7 @@ int receive(int argc, char **argv) {
         // receive buffer cannot handle so many packets, so we ignore the receipt of this packet
       } else {
         if (recdSeqNo == nextExpectedSeqno) {
+          myfile << "W " << TcpPacket::getBytes(buf, 0, SEQUENCE_SIZE) << std::endl;
           processStream(buf);
           free(buf);
           nextExpectedSeqno++;
@@ -171,11 +177,12 @@ int receive(int argc, char **argv) {
                 break;
               }
               processStream(receiveBuffer.back());
+              myfile << "W " << TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE) << std::endl;
               nextExpectedSeqno++;
             }
             free(receiveBuffer.back());
             receiveBuffer.pop_back();
-            printf("Queue size = %d\n", receiveBuffer.size());
+            myfile << "Q " << receiveBuffer.size() << std::endl;
             if (!receiveBuffer.empty()) {
               printf("Loop: Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)));
             }
@@ -184,7 +191,7 @@ int receive(int argc, char **argv) {
           printf("Pushing packet number %d into queue\n", recdSeqNo);
           receiveBuffer.push_back(buf);
           sort(receiveBuffer.begin(), receiveBuffer.end(), comparator);
-          printf("Queue size = %d\n", receiveBuffer.size());
+          myfile << "Q " << receiveBuffer.size() << std::endl;
           printf("Push: Top of queue has packet number %d\n", atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)));
         }
 
@@ -200,5 +207,6 @@ int receive(int argc, char **argv) {
       }
     }
   }
+  myfile.close();
   /* never exits */
 }

@@ -32,7 +32,7 @@ int main(void) {
   myfile.open("log.txt");
 
 
-  std::ifstream is("test.mp3", std::ios::binary);
+  std::ifstream is("test.txt", std::ios::binary);
   if (is) {
 
     bool fileComplete = false;
@@ -94,6 +94,7 @@ int main(void) {
     int recover = -1;				/* SeqNo of packet when entering Fast Retransmit */
     bool same = false;
 	int qSeqNo = -1;
+	LONGLONG tTime = 0;
 	std::list<TcpPacket *>::iterator currentPack = packetList.end();
 
     struct timeb startT, endT;
@@ -117,7 +118,7 @@ int main(void) {
       exit(1);
     }
     //packetQueue.push(newPacket);
-	packetList.push_front(newPacket);
+	packetList.push_back(newPacket);
 
     /* Check if file completely sent */
     if (is.eof()) {
@@ -136,7 +137,7 @@ int main(void) {
       printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
       myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
       //packetQueue.push(newPacket);
-	  packetList.push_front(newPacket);
+	  packetList.push_back(newPacket);
     }
 
     /* now receive an acknowledgement from the server */
@@ -145,17 +146,17 @@ int main(void) {
       /* Set socket timeout */
       //TcpPacket* packet = packetQueue.front();
 	  TcpPacket* packet = packetList.front();
-
+	  
       millis = getTime();
       long long diff = millis;
       char *endp;
       long long start = _strtoi64(TcpPacket::getBytes(packet->buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endp, 10);
       struct timeval tv;
       tv.tv_sec = 0;
-      tv.tv_usec = 200000 - (long) (diff - start);					/* NEED TO CHECK IF ALWAYS POSITIVE? */
+      tv.tv_usec = (300 - (long) (diff - start))*1000;					/* NEED TO CHECK IF ALWAYS POSITIVE? */
       fd_set fds;
       int n;
-
+	  //printf("wait time is %d\n\n\n", (200- (long)(diff - start)) * 1000);
       // Set up the file descriptor set.
       FD_ZERO(&fds);
       FD_SET(fd, &fds);
@@ -172,7 +173,6 @@ int main(void) {
         dupAcks = 0;
         recover = -1;
         lostAck = -1;
-		currentPack = packetList.begin();
 		seqNo = lastAcknowledged;
         cwnd = 1;
         //ssThresh = 64;
@@ -188,16 +188,19 @@ int main(void) {
 		int nL = atoi(TcpPacket::getBytes(packet->buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE + TIMESTAMP_SIZE, DATA_SIZE_SIZE));
 		char * nBuf = TcpPacket::getBytes(packet->buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE + TIMESTAMP_SIZE+DATA_SIZE_SIZE , nL);
 		millis = getTime();
+		tTime = millis;
 		bool flags[] = { false, false, false, true, false, false, false, false, false };
 		TcpPacket *newPacket = new TcpPacket(seqNo, 0, flags, 0, millis, (unsigned int)nL, nBuf);
         if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
           perror("sendto");
           exit(1);
         }
-		packetList.pop_back();
+		packetList.pop_front();
 		free(packet);
-		packetList.push_back(newPacket);
+		packetList.push_front(newPacket);
 		packet = newPacket;
+		currentPack = packetList.begin();
+		printf("here");
 		currentPack++;
         myfile << "T " << lastAcknowledged << " " << cwnd << " " << ssThresh << " " << millis << "\n";
         printf("Timeout, restarting transimission from seq no %d\n", packetSeqNo);
@@ -209,6 +212,13 @@ int main(void) {
       }
 
       recvlen = recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)&remaddr, &slen);
+	  char *endptr;
+	  unsigned long long int rrtend = strtoull(TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endptr, 10);
+	  //printf("rtt is %llu and rrtend is %llu \n", (long long)getTime(), rrtend);
+	  if (rrtend < tTime) {
+		  printf("Receiving old packet\n");
+		  continue;
+	  }
       if (recvlen >= 0) {
         bool* Aflags = TcpPacket::getFlags(buf);
         if (!*(Aflags + ACKBIT)) {
@@ -221,6 +231,7 @@ int main(void) {
 
         cwnd = min(cwnd, strtoul(TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE, WINDOW_SIZE_SIZE), endp1, 10));
 
+		
 
         char* ackno = TcpPacket::getBytes(buf, SEQUENCE_SIZE, ACK_SIZE);
         int ano = atoi(ackno);
@@ -233,25 +244,28 @@ int main(void) {
 
         printf("Packet received with ACK no %d\n", ano);
         myfile << "A " << ano << "\n";
-        
+		
         // Check if this is the last ACK expected.
         if (fileComplete && ano == lastSeqNo+1) {
           printf("All packets acknowledged! Yay!!! :D :D :D\n");
           ftime(&endT);
-          diff = (int) (1000.0 * (endT.time - startT.time)
+          diff = (long long) (1000.0 * (endT.time - startT.time)
             + (endT.millitm - startT.millitm));
 
-          printf("\n********* Operation took %u milliseconds and throughput is %d ************\n", diff,((1000.0*fileLength)/(double)diff));
+          printf("\n********* Operation took %llu milliseconds for filelength %d and throughput is %f ************\n", diff,fileLength,((1000.0*fileLength)/diff));
           break;
         }
-
+		
         /* Clear packets from front of queue */
 		TcpPacket* packet = packetList.front();
         int packetNo = atoi(TcpPacket::getBytes(packet->buf, 0, SEQUENCE_SIZE));
+		printf("ano is %d and packetno is %d\n", ano, packetNo);
         while (ano > packetNo)
         {
-          free(packet);
-		  packetList.pop_back();
+		  packetList.pop_front();
+		  
+		  free(packet);
+		  
 		  if (!packetList.empty()) {
             packet = packetList.front();
             packetNo = atoi(TcpPacket::getBytes(packet->buf, 0, SEQUENCE_SIZE));
@@ -259,7 +273,7 @@ int main(void) {
             break;
           }
         }
-
+		
         /* packet now contains the packet at top of queue and packetNo is the sequence no of the packet */
         /* lastAcknowledged == ano during fast retransmit as well */
         if (!same && lastAcknowledged == ano) {
@@ -282,7 +296,7 @@ int main(void) {
           same = true;
           lostAck = lastAcknowledged;
           if (lostAck != packetNo) {
-            perror("Consistency error\n");
+            printf("Consistency error, lostAck is %d and packetNo is %d\n",lostAck,packetNo);
             exit(1);
           }
 
@@ -297,7 +311,7 @@ int main(void) {
           continue;
         }
         /* CHECK FOR WHAT HAPPENS IF TRIPLE DUP ACK IN SLOW START PHASE */
-
+		
         if (fastRetransmit && ano > lostAck && ano >= recover) {
           printf("Leaving fast retransmit");
           fastRetransmit = false;
@@ -366,7 +380,7 @@ int main(void) {
 					  lastSeqNo = seqNo;
 					  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 					  myfile << "F " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
-					  packetList.push_front(newPacket);
+					  packetList.push_back(newPacket);
 					  break;
 				  }
 				  char *buffer = new char[CONTENT_SIZE];
@@ -386,7 +400,7 @@ int main(void) {
 					  perror("sendto");
 					  exit(1);
 				  }
-				  packetList.push_front(newPacket);
+				  packetList.push_back(newPacket);
 
 			  }
 		  }
@@ -423,7 +437,7 @@ int main(void) {
 				  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 
 				  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
-				  if (sendto(fd, packet->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+				  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 					  perror("sendto");
 					  exit(1);
 				  }
@@ -446,7 +460,7 @@ int main(void) {
 				  lastSeqNo = seqNo;
 				  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 				  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
-				  packetList.push_front(newPacket);
+				  packetList.push_back(newPacket);
 				  break;
 				}
 
@@ -463,7 +477,7 @@ int main(void) {
 					  perror("sendto");
 					  exit(1);
 				  }
-				  packetList.push_front(newPacket);
+				  packetList.push_back(newPacket);
 			}
           }
           if (cwnd >= ssThresh) {
@@ -498,7 +512,7 @@ int main(void) {
 
 				  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 				  myfile << "C " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
-				  if (sendto(fd, packet->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+				  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 					  perror("sendto");
 					  exit(1);
 				  }
@@ -521,7 +535,7 @@ int main(void) {
 				  lastSeqNo = seqNo;
 				  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 				  myfile << "C " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
-				  packetList.push_front(newPacket);
+				  packetList.push_back(newPacket);
 				  break;
 			  }
 
@@ -539,7 +553,7 @@ int main(void) {
 				  perror("sendto");
 				  exit(1);
 			  }
-			  packetList.push_front(newPacket);
+			  packetList.push_back(newPacket);
 		  }
           }
 

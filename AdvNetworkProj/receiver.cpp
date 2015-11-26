@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
   for (;;) {
     printf("waiting on port %d\n", SERVICE_PORT);
     buf = (char *) malloc(PACKET_SIZE * sizeof(char));
-    recvlen = recvfrom(fd, buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
+    recvlen = recvfrom(fd, buf, PACKET_SIZE, 0, (struct sockaddr *) &remaddr, &addrlen);
 
     // Check the checksum
     char* checksumSent = TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE, CHECKSUM_SIZE);
@@ -138,12 +138,12 @@ int main(int argc, char **argv) {
     } else if (*(Aflags + FINBIT)) {
       if (receiveBuffer.empty()) {
         bool flags[] = { false, false, false, false, true, false, false, true, false };
-        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), 0, nullptr);
+        TcpPacket ackPacket(sendSeqNo++, ++nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), 0, nullptr);
         if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
           perror("error in sending finAckPacket");
           exit(1);
         }
-        printf("ACK sent for FIN packet\n");
+        printf("ACK sent for FIN packet with expectation for %d\n", nextExpectedSeqno);
         free(buf);
         free(Aflags);
         break;
@@ -167,11 +167,11 @@ int main(int argc, char **argv) {
               if (*(TcpPacket::getFlags(receiveBuffer.back()) + FINBIT)) {
                 bool flags[] = { false, false, false, false, true, false, false, true, false };
                 TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), 0, nullptr);
-                if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
+                if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *) &remaddr, addrlen) == -1) {
                   perror("error in sending finAckPacket");
                   exit(1);
                 }
-                printf("ACK sent for FIN packet\n");
+                printf("ACK sent for FIN packet with expectation for %d\n", nextExpectedSeqno);
                 free(buf);
                 free(Aflags);
                 break;

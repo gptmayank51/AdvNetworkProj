@@ -65,13 +65,14 @@ int receive(int argc, char **argv) {
   }
 
   int sendSeqNo = rand() % 1000;
+  char *endptr;
   std::vector<char*> receiveBuffer;
   int nextExpectedSeqno = 0;
   /* now loop, receiving data and printing what we received */
   for (;;) {
     printf("waiting on port %d\n", SERVICE_PORT);
     buf = (char *) malloc(PACKET_SIZE * sizeof(char));
-    recvlen = recvfrom(fd, buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
+    recvlen = recvfrom(fd, buf, PACKET_SIZE, 0, (struct sockaddr *) &remaddr, &addrlen);
 
     // Check the checksum
     char* checksumSent = TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE, CHECKSUM_SIZE);
@@ -83,7 +84,7 @@ int receive(int argc, char **argv) {
       if (*(checksumRecd + i) != *(checksumSent + i)) {
         // Packet received has incorrect checksum, ACK the previous packet again
         bool flags[] = { false, false, false, false, true, false, false, true, false };
-        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), 0, (char*) nullptr);
+        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), strtoull(TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endptr, 10), 0, (char*) nullptr);
         if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
           perror("error in sending ackPacket");
           exit(1);
@@ -96,6 +97,13 @@ int receive(int argc, char **argv) {
     bool* Aflags = TcpPacket::getFlags(buf);
     myfile << "R " << TcpPacket::getBytes(buf, 0, SEQUENCE_SIZE) << std::endl;
 
+    if (*(Aflags + URGBIT)) {
+      for (std::vector<char *>::iterator it = receiveBuffer.begin(); it != receiveBuffer.end(); it++) {
+        free(*it);
+      }
+      receiveBuffer.clear();
+    }
+
     /* Check if Packet is a SYN packet */
     if (*(Aflags + SYNBIT)) {
       int recdSeqNo = atoi(TcpPacket::getBytes(buf, 0, SEQUENCE_SIZE));
@@ -104,7 +112,7 @@ int receive(int argc, char **argv) {
       printf("SYN msg received with sequence number %d\n", recdSeqNo);
       /* construct SYN-ACK for the packet just received*/
       bool flags[] = { false, false, false, false, true, false, false, true, false };
-      TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) RECEIVE_BUFFER_SIZE, time(0), 0, nullptr);
+      TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) RECEIVE_BUFFER_SIZE, strtoull(TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endptr, 10), 0, nullptr);
       if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
         perror("error in sending ackPacket");
         exit(1);
@@ -138,12 +146,12 @@ int receive(int argc, char **argv) {
     } else if (*(Aflags + FINBIT)) {
       if (receiveBuffer.empty()) {
         bool flags[] = { false, false, false, false, true, false, false, true, false };
-        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), 0, nullptr);
+        TcpPacket ackPacket(sendSeqNo++, ++nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), strtoull(TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endptr, 10), 0, nullptr);
         if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
           perror("error in sending finAckPacket");
           exit(1);
         }
-        printf("ACK sent for FIN packet\n");
+        printf("ACK sent for FIN packet with expectation for %d\n", nextExpectedSeqno);
         free(buf);
         free(Aflags);
         break;
@@ -166,12 +174,12 @@ int receive(int argc, char **argv) {
             if (atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)) == nextExpectedSeqno) {
               if (*(TcpPacket::getFlags(receiveBuffer.back()) + FINBIT)) {
                 bool flags[] = { false, false, false, false, true, false, false, true, false };
-                TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), 0, nullptr);
-                if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
+                TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), strtoull(TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endptr, 10), 0, nullptr);
+                if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *) &remaddr, addrlen) == -1) {
                   perror("error in sending finAckPacket");
                   exit(1);
                 }
-                printf("ACK sent for FIN packet\n");
+                printf("ACK sent for FIN packet with expectation for %d\n", nextExpectedSeqno);
                 free(buf);
                 free(Aflags);
                 break;
@@ -197,7 +205,7 @@ int receive(int argc, char **argv) {
 
         // Generate ACK for received packet
         bool flags[] = { false, false, false, false, true, false, false, true, false };
-        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), time(0), 0, nullptr);
+        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), strtoull(TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endptr, 10), 0, nullptr);
         if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
           perror("error in sending ackPacket");
           exit(1);

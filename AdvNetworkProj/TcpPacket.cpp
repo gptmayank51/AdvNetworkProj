@@ -14,7 +14,7 @@ void TcpPacket::setBufferValues(char* buf, int start, int size, char *value) {
 char* TcpPacket::calculateCsum(char* buf) {
   char* csum = (char *) malloc(sizeof(char) * CHECKSUM_SIZE);
   memset(csum, '\0', CHECKSUM_SIZE);
-  for (int i = 0; i < PACKET_SIZE / 16; i++) {
+  for (unsigned int i = 0; i < strlen(buf) / 16; i++) {
     for (int j = 0; j < 16; j++) {
       *(csum + j) = *(csum + j) ^ *(buf + 16 * i + j);
     }
@@ -58,7 +58,11 @@ TcpPacket::TcpPacket(
   unsigned long long int timestamp,
   unsigned int data_size,
   char * content) {
-  buf = (char *) malloc(sizeof(char)*PACKET_SIZE);
+  if (data_size == 0) {
+    buf = (char *) malloc(sizeof(char) * PACKET_SIZE - HEADER_SIZE);
+  } else {
+    buf = (char *) malloc(sizeof(char) * PACKET_SIZE);
+  }
   memset(buf, 0, PACKET_SIZE);
   char unsigned_int_buffer[SEQUENCE_SIZE];
   int current_bit = 0;
@@ -98,7 +102,9 @@ TcpPacket::TcpPacket(
   setBufferValues(buf, current_bit, DATA_SIZE_SIZE, unsigned_int_buffer);
   current_bit += DATA_SIZE_SIZE;
 
-  setBufferValues(buf, current_bit, data_size, content);
+  if (data_size != 0) {
+    setBufferValues(buf, current_bit, data_size, content);
+  }
 
   // Calculate checksum and set it
   char* csum = calculateCsum(buf);

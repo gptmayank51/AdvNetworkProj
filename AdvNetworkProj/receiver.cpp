@@ -97,6 +97,13 @@ int main(int argc, char **argv) {
     bool* Aflags = TcpPacket::getFlags(buf);
     myfile << "R " << TcpPacket::getBytes(buf, 0, SEQUENCE_SIZE) << std::endl;
 
+    if (*(Aflags + URGBIT)) {
+      for (std::vector<char *>::iterator it = receiveBuffer.begin(); it != receiveBuffer.end(); it++) {
+        free(*it);
+      }
+      receiveBuffer.clear();
+    }
+
     /* Check if Packet is a SYN packet */
     if (*(Aflags + SYNBIT)) {
       int recdSeqNo = atoi(TcpPacket::getBytes(buf, 0, SEQUENCE_SIZE));

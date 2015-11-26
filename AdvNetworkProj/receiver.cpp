@@ -13,12 +13,23 @@
 
 #define RECEIVE_BUFFER_SIZE 2048
 
+struct LastPacket {
+  unsigned long long int timestamp;
+  unsigned int packetNumber;
+};
+
+LastPacket *newLastPacket(unsigned long long int timestamp, unsigned int packetNumber) {
+  LastPacket *lastPacket = (LastPacket *) malloc(sizeof(LastPacket));
+  lastPacket->timestamp = timestamp;
+  lastPacket->packetNumber = packetNumber;
+  return lastPacket;
+}
 
 bool comparator(char* lhs, char* rhs) {
   return atoi(TcpPacket::getBytes(lhs, 0, SEQUENCE_SIZE)) > atoi(TcpPacket::getBytes(rhs, 0, SEQUENCE_SIZE));
 }
 
-unsigned long long int processStream(char *stream) {
+LastPacket *processStream(char *stream) {
   std::ofstream fout;
   fout.open("received.mp3", std::ios::app | std::ios::binary);
   int sizeOfData = atoi(TcpPacket::getBytes(stream, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE + TIMESTAMP_SIZE, DATA_SIZE_SIZE));
@@ -28,7 +39,7 @@ unsigned long long int processStream(char *stream) {
   free(content);
   fout.close();
   char *endptr;
-  return strtoull(TcpPacket::getBytes(stream, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endptr, 10);
+  return newLastPacket(strtoull(TcpPacket::getBytes(stream, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endptr, 10), atoi(TcpPacket::getBytes(stream, 0, SEQUENCE_SIZE)));
 }
 
 int main(int argc, char **argv) {
@@ -70,6 +81,7 @@ int main(int argc, char **argv) {
   char *endptr;
   std::vector<char*> receiveBuffer;
   int nextExpectedSeqno = 0;
+  LastPacket* lastOrderedPacket = nullptr;
   /* now loop, receiving data and printing what we received */
   for (;;) {
     printf("waiting on port %d\n", SERVICE_PORT);
@@ -168,18 +180,28 @@ int main(int argc, char **argv) {
       printf("normal packet received with sequence number %d\n", recdSeqNo);
       if (recdSeqNo >= RECEIVE_BUFFER_SIZE + nextExpectedSeqno) {
         // receive buffer cannot handle so many packets, so we ignore the receipt of this packet
+        free(buf);
       } else {
-        unsigned long long int timestamp;
-        if (recdSeqNo == nextExpectedSeqno) {
+        if (lastOrderedPacket != nullptr && (unsigned int) recdSeqNo <= lastOrderedPacket->packetNumber) {
+          bool flags[] = { false, false, false, false, true, false, false, true, false };
+          TcpPacket ackPacket(sendSeqNo++, recdSeqNo + 1, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), strtoull(TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endptr, 10), 0, nullptr);
+          if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
+            perror("error in sending ackPacket");
+            exit(1);
+          }
+          printf("Fake ACK sent expecting packet sequence number %d\n", recdSeqNo + 1);
+          free(buf);
+        } else if (recdSeqNo == nextExpectedSeqno) {
           myfile << "W " << TcpPacket::getBytes(buf, 0, SEQUENCE_SIZE) << std::endl;
-          timestamp = processStream(buf);
+          free(lastOrderedPacket);
+          lastOrderedPacket = processStream(buf);
           free(buf);
           nextExpectedSeqno++;
           while (!receiveBuffer.empty() && atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)) <= nextExpectedSeqno) {
             if (atoi(TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE)) == nextExpectedSeqno) {
               if (*(TcpPacket::getFlags(receiveBuffer.back()) + FINBIT)) {
                 bool flags[] = { false, false, false, false, true, false, false, true, false };
-                TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), timestamp, 0, nullptr);
+                TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), lastOrderedPacket->timestamp, 0, nullptr);
                 if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *) &remaddr, addrlen) == -1) {
                   perror("error in sending finAckPacket");
                   exit(1);
@@ -189,7 +211,8 @@ int main(int argc, char **argv) {
                 free(Aflags);
                 break;
               }
-              timestamp = processStream(receiveBuffer.back());
+              free(lastOrderedPacket);
+              lastOrderedPacket = processStream(receiveBuffer.back());
               myfile << "W " << TcpPacket::getBytes(receiveBuffer.back(), 0, SEQUENCE_SIZE) << std::endl;
               nextExpectedSeqno++;
             }
@@ -210,7 +233,7 @@ int main(int argc, char **argv) {
 
         // Generate ACK for received packet
         bool flags[] = { false, false, false, false, true, false, false, true, false };
-        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), timestamp, 0, nullptr);
+        TcpPacket ackPacket(sendSeqNo++, nextExpectedSeqno, flags, (unsigned int) (RECEIVE_BUFFER_SIZE - receiveBuffer.size()), lastOrderedPacket->timestamp, 0, nullptr);
         if (sendto(fd, ackPacket.buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, addrlen) == -1) {
           perror("error in sending ackPacket");
           exit(1);

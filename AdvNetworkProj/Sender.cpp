@@ -12,6 +12,7 @@
 #include <fstream>
 #include <list>
 #include <queue>
+#include "Network.h"
 
 #define BUFLEN 2048
 
@@ -22,7 +23,7 @@ LONGLONG getTime() {
   return time.wHour * 86400000ll + time.wMinute * 60000ll + time.wSecond * 1000ll + time.wMilliseconds;
 }
 
-int send(void) {
+int main(void) {
   std::vector<std::string> v = { "test.mp3", "test.txt" };
   /* Do 3 way handshake and decide on seq nos */
   TcpConnection connection = TcpConnection(SERVER, SERVICE_PORT);
@@ -180,7 +181,7 @@ int send(void) {
         recover = -1;
         lostAck = -1;
 		seqNo = lastAcknowledged;
-        cwnd = max(2 * DELAY_PARAMETER; ,cwnd/factor);
+        cwnd = max(2 * DELAY_PARAMETER ,cwnd/factor);
         //ssThresh = 64;
         slowStart = true;
 
@@ -323,7 +324,7 @@ int send(void) {
           same = false;
           recover = -1;
           CAacksReceived = 0;
-          cwnd = min(FTcwnd, seqNo - ano + 1);
+		  cwnd = FTcwnd;
           if (cwnd < ssThresh) {
             slowStart = true;
           }

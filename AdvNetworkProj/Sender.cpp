@@ -95,7 +95,7 @@ int main(void) {
     bool same = false;
 	int qSeqNo = -1;
 	LONGLONG tTime = 0;
-	int cwnd = 5;
+	int cwnd = 2*DELAY_PARAMETER;
 	const int timeout = 500;
 	int factor = 3;
 	std::list<TcpPacket *>::iterator currentPack = packetList.end();
@@ -180,7 +180,7 @@ int main(void) {
         recover = -1;
         lostAck = -1;
 		seqNo = lastAcknowledged;
-        cwnd = max(1,cwnd/factor);
+        cwnd = max(2 * DELAY_PARAMETER; ,cwnd/factor);
         //ssThresh = 64;
         slowStart = true;
 

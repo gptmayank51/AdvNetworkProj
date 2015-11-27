@@ -22,7 +22,8 @@ LONGLONG getTime() {
   return time.wHour * 86400000ll + time.wMinute * 60000ll + time.wSecond * 1000ll + time.wMilliseconds;
 }
 
-int send(void) {
+int main(void) {
+  std::vector<std::string> v = { "test.mp3", "test.txt" };
   /* Do 3 way handshake and decide on seq nos */
   TcpConnection connection = TcpConnection(SERVER, SERVICE_PORT);
   int seqNo = TcpConnection::seqNo;
@@ -32,7 +33,7 @@ int send(void) {
   myfile.open("log.txt");
 
 
-  std::ifstream is("test.txt", std::ios::binary);
+  std::ifstream is("test.mp3", std::ios::binary);
   if (is) {
 
     bool fileComplete = false;
@@ -252,7 +253,7 @@ int send(void) {
           diff = (long long) (1000.0 * (endT.time - startT.time)
             + (endT.millitm - startT.millitm));
 
-          printf("\n********* Operation took %llu milliseconds for filelength %d and throughput is %f ************\n", diff,fileLength,((1000.0*fileLength)/diff));
+          printf("\n*********\n Operation took %llu milliseconds for file of length %d \n throughput is %f KBps \n************\n", diff,fileLength,((1.0*fileLength)/diff));
           break;
         }
 
@@ -263,7 +264,6 @@ int send(void) {
         while (ano > packetNo)
         {
 		  packetList.pop_front();
-		  
           free(packet);
 		  
 		  if (!packetList.empty()) {

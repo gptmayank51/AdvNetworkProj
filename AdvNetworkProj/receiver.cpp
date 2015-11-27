@@ -42,7 +42,7 @@ LastPacket *processStream(char *stream) {
   return newLastPacket(TcpPacket::getTimeStamp(stream), atoi(TcpPacket::getBytes(stream, 0, SEQUENCE_SIZE)));
 }
 
-int main(int argc, char **argv) {
+int receive(int argc, char **argv) {
   struct sockaddr_in myaddr;  /* our address */
   struct sockaddr_in remaddr; /* remote address */
   socklen_t addrlen = sizeof(remaddr);        /* length of addresses */

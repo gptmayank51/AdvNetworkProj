@@ -22,7 +22,7 @@ LONGLONG getTime() {
   return time.wHour * 86400000ll + time.wMinute * 60000ll + time.wSecond * 1000ll + time.wMilliseconds;
 }
 
-int main(void) {
+int send(void) {
   std::vector<std::string> v = { "test.mp3", "test.txt" };
   /* Do 3 way handshake and decide on seq nos */
   TcpConnection connection = TcpConnection(SERVER, SERVICE_PORT);

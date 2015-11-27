@@ -11,6 +11,7 @@
 #include "port.h"
 #include "TcpPacket.h"
 
+#define DELAY_PARAMETER 3
 #define RECEIVE_BUFFER_SIZE 2048
 
 struct LastPacket {
@@ -88,7 +89,7 @@ int receive(int argc, char **argv) {
     printf("waiting on port %d\n", SERVICE_PORT);
     buf = (char *) malloc(PACKET_SIZE * sizeof(char));
     recvlen = recvfrom(fd, buf, PACKET_SIZE, 0, (struct sockaddr *) &remaddr, &addrlen);
-    if (packetCount == 5) {
+    if (packetCount == DELAY_PARAMETER) {
       sendAck = true;
       packetCount = 0;
     }

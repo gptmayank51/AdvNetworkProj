@@ -83,7 +83,6 @@ int main(void) {
 
     /* Set ssthreshold and congestion window size in terms of no of packets */
     int ssThresh = 32;
-    int cwnd = 1;
     int lastAcknowledged = seqNo;	/* ACK no of the last packet received */
     bool slowStart = true;
     bool fastRetransmit = false;
@@ -96,50 +95,56 @@ int main(void) {
     bool same = false;
 	int qSeqNo = -1;
 	LONGLONG tTime = 0;
+	int cwnd = 5;
+	const int timeout = 500;
+	int factor = 3;
 	std::list<TcpPacket *>::iterator currentPack = packetList.end();
 
     struct timeb startT, endT;
     ftime(&startT);
-    /* Send one packet */
-    char *buffer = (char *) malloc(sizeof(char)*CONTENT_SIZE);
-    memset(buffer, '\0', CONTENT_SIZE);
-    is.read(buffer, CONTENT_SIZE - 1);
-    printf("File read\n");
-    bool flags[] = { false, false, false, false, false, false, false, false, false };
-    LONGLONG millis = getTime();
-    TcpPacket * newPacket = new TcpPacket(seqNo, 1, flags, cwnd, millis, (unsigned int) is.gcount(), buffer);
-	qSeqNo = seqNo;
-    printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
-    myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
-    free(buffer);
-    //free(buffer);
-    //sprintf_s(buf, tcpPacket.buf, i);
-    if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
-      perror("sendto");
-      exit(1);
-    }
-    //packetQueue.push(newPacket);
-	packetList.push_back(newPacket);
+	LONGLONG millis = getTime();
+	for (int i = 0; i < cwnd; i++) {
+		/* Send one packet */
+		char *buffer = (char *)malloc(sizeof(char)*CONTENT_SIZE);
+		memset(buffer, '\0', CONTENT_SIZE);
+		is.read(buffer, CONTENT_SIZE - 1);
+		printf("File read\n");
+		bool flags[] = { false, false, false, false, false, false, false, false, false };
+		millis = getTime();
+		TcpPacket * newPacket = new TcpPacket(seqNo, 1, flags, cwnd, millis, (unsigned int)is.gcount(), buffer);
+		qSeqNo = seqNo;
+		printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+		myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
+		free(buffer);
+		//free(buffer);
+		//sprintf_s(buf, tcpPacket.buf, i);
+		if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+			perror("sendto");
+			exit(1);
+		}
+		//packetQueue.push(newPacket);
+		packetList.push_back(newPacket);
 
-    /* Check if file completely sent */
-    if (is.eof()) {
-      fileComplete = true;
-      seqNo++;
-      printf("Sending FIN Packet indicating transmission complete");
-      bool flags[] = { false, false, false, false, false, false, false, false, true };
+		/* Check if file completely sent */
+		if (is.eof()) {
+			fileComplete = true;
+			seqNo++;
+			printf("Sending FIN Packet indicating transmission complete");
+			bool flags[] = { false, false, false, false, false, false, false, false, true };
 
-      millis = getTime();
-      TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, millis, PACKET_SIZE, nullptr);
-      if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
-        perror("sendto");
-        exit(1);
-      }
-      lastSeqNo = seqNo;
-      printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
-      myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
-      //packetQueue.push(newPacket);
-	  packetList.push_back(newPacket);
-    }
+			millis = getTime();
+			TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, millis, PACKET_SIZE, nullptr);
+			if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
+				perror("sendto");
+				exit(1);
+			}
+			lastSeqNo = seqNo;
+			printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+			myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
+			//packetQueue.push(newPacket);
+			packetList.push_back(newPacket);
+		}
+	}
 
     /* now receive an acknowledgement from the server */
     while (true) {
@@ -154,7 +159,7 @@ int main(void) {
       long long start = _strtoi64(TcpPacket::getBytes(packet->buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endp, 10);
       struct timeval tv;
       tv.tv_sec = 0;
-      tv.tv_usec = (300 - (long) (diff - start))*1000;					/* NEED TO CHECK IF ALWAYS POSITIVE? */
+      tv.tv_usec = (timeout - (long) (diff - start))*1000;					/* NEED TO CHECK IF ALWAYS POSITIVE? */
       fd_set fds;
       int n;
 	  //printf("wait time is %d\n\n\n", (200- (long)(diff - start)) * 1000);
@@ -175,7 +180,7 @@ int main(void) {
         recover = -1;
         lostAck = -1;
 		seqNo = lastAcknowledged;
-        cwnd = 1;
+        cwnd = max(1,cwnd/factor);
         //ssThresh = 64;
         slowStart = true;
 
@@ -253,7 +258,7 @@ int main(void) {
           diff = (long long) (1000.0 * (endT.time - startT.time)
             + (endT.millitm - startT.millitm));
 
-          printf("\n*********\n Operation took %llu milliseconds for file of length %d \n throughput is %f KBps \n************\n", diff,fileLength,((1.0*fileLength)/diff));
+          printf("\n*********\n Operation took %llu milliseconds for file of length %d \n Throughput is %f KBps \n************\n", diff,fileLength,((1.0*fileLength)/diff));
           break;
         }
 

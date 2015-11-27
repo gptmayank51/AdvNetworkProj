@@ -50,6 +50,11 @@ void TcpPacket::setCsum(char* buf, char* checksum) {
   setBufferValues(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE, CHECKSUM_SIZE, checksum);
 }
 
+unsigned long long int TcpPacket::getTimeStamp(char *buf) {
+  char *endptr;
+  return strtoull(TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endptr, 10);
+}
+
 TcpPacket::TcpPacket(
   unsigned int sequence_number,
   unsigned int ack_number,

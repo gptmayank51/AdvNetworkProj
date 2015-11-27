@@ -22,6 +22,7 @@ public:
   static void setCsum(char*, char*);
   static bool* getFlags(char* buf);
   static char* getBytes(char* buf, int start, int size);
+  static unsigned long long int getTimeStamp(char *buf);
   char* buf;
 
   TcpPacket(unsigned int sequence_number,

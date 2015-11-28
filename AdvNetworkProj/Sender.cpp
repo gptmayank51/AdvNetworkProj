@@ -36,13 +36,12 @@ int main(void) {
 
   std::ifstream is("test.mp3", std::ios::binary);
   if (is) {
-
     bool fileComplete = false;
     // get length of file:
     is.seekg(0, is.end);
     int fileLength = is.tellg();
     is.seekg(0, is.beg);
-    printf("Reading file of length %d\n", fileLength);
+    //printf("Reading file of length %d\n", fileLength);
 
 
     /* Do further communication now */
@@ -55,7 +54,7 @@ int main(void) {
     /* create a socket */
 
     if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-      printf("socket created\n");
+      //printf("socket created\n");
 
     /* bind it to all local addresses and pick any port number */
 
@@ -78,7 +77,7 @@ int main(void) {
     remaddr.sin_family = AF_INET;
     remaddr.sin_port = htons(SERVICE_PORT);
     if (inet_pton(remaddr.sin_family, SERVER, &remaddr.sin_addr) == 0) {
-      printf("inet_pton() failed\n");
+      //printf("inet_pton() failed\n");
       perror("inet_pton() failed");
     }
 
@@ -97,7 +96,7 @@ int main(void) {
 	int qSeqNo = -1;
 	LONGLONG tTime = 0;
 	int cwnd = 2*DELAY_PARAMETER;
-	const int timeout = 500;
+	const int timeout = 200;
 	int factor = 3;
 	std::list<TcpPacket *>::iterator currentPack = packetList.end();
 
@@ -109,28 +108,29 @@ int main(void) {
 		char *buffer = (char *)malloc(sizeof(char)*CONTENT_SIZE);
 		memset(buffer, '\0', CONTENT_SIZE);
 		is.read(buffer, CONTENT_SIZE - 1);
-		printf("File read\n");
+		//printf("seq no is %d\n\n\n %s\n",seqNo, buffer);
 		bool flags[] = { false, false, false, false, false, false, false, false, false };
 		millis = getTime();
 		TcpPacket * newPacket = new TcpPacket(seqNo, 1, flags, cwnd, millis, (unsigned int)is.gcount(), buffer);
 		qSeqNo = seqNo;
-		printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+		//printf("Sending packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 		myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
 		free(buffer);
 		//free(buffer);
-		//sprintf_s(buf, tcpPacket.buf, i);
+		//s//printf_s(buf, tcpPacket.buf, i);
 		if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 			perror("sendto");
 			exit(1);
 		}
 		//packetQueue.push(newPacket);
+		//printf("pushing seqno %d in queue", seqNo);
 		packetList.push_back(newPacket);
 
 		/* Check if file completely sent */
 		if (is.eof()) {
 			fileComplete = true;
 			seqNo++;
-			printf("Sending FIN Packet indicating transmission complete");
+			//printf("Sending FIN Packet indicating transmission complete");
 			bool flags[] = { false, false, false, false, false, false, false, false, true };
 
 			millis = getTime();
@@ -140,16 +140,24 @@ int main(void) {
 				exit(1);
 			}
 			lastSeqNo = seqNo;
-			printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+			//printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 			myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
 			//packetQueue.push(newPacket);
 			packetList.push_back(newPacket);
 		}
+		seqNo++;
 	}
-
+	/* To compensate for extra increase above */
+	seqNo--;
     /* now receive an acknowledgement from the server */
+	int printCount = 0;
     while (true) {
-      printf("Waiting for ACK\n");
+		if (printCount == 100) {
+			printf("%f file sent\n", (100.0*is.tellg()) / fileLength);
+		}
+		printCount = (printCount + 1) % 500;
+		
+      //printf("Waiting for ACK\n");
       /* Set socket timeout */
       //TcpPacket* packet = packetQueue.front();
 	  TcpPacket* packet = packetList.front();
@@ -163,7 +171,7 @@ int main(void) {
       tv.tv_usec = (timeout - (long) (diff - start))*1000;					/* NEED TO CHECK IF ALWAYS POSITIVE? */
       fd_set fds;
       int n;
-	  //printf("wait time is %d\n\n\n", (200- (long)(diff - start)) * 1000);
+	  ////printf("wait time is %d\n\n\n", (200- (long)(diff - start)) * 1000);
       // Set up the file descriptor set.
       FD_ZERO(&fds);
       FD_SET(fd, &fds);
@@ -173,7 +181,7 @@ int main(void) {
       if (n == 0)
       {
         /* Restart transmission from last acknowledged packet */
-        printf("Timeout Occurred :( \n");
+        //printf("Timeout Occurred :( \n");
         /* Reset all variables */
         same = false;
         fastRetransmit = false;
@@ -181,7 +189,8 @@ int main(void) {
         recover = -1;
         lostAck = -1;
 		seqNo = lastAcknowledged;
-        cwnd = max(2 * DELAY_PARAMETER ,cwnd/factor);
+        //cwnd = max(2 * DELAY_PARAMETER ,cwnd/factor);
+		cwnd = max(2 * DELAY_PARAMETER, 1);
         //ssThresh = 64;
         slowStart = true;
 
@@ -189,7 +198,7 @@ int main(void) {
 		TcpPacket* packet = packetList.front();
         int packetSeqNo = atoi(TcpPacket::getBytes(packet->buf, 0, SEQUENCE_SIZE));
         if (packetSeqNo != lastAcknowledged) {
-          printf("Queue consistency check failed, Queue top is %d while lastAcked is %d\n", packetSeqNo, lastAcknowledged);
+          //printf("Queue consistency check failed, Queue top is %d while lastAcked is %d\n", packetSeqNo, lastAcknowledged);
           exit(1);
         }
 		int nL = atoi(TcpPacket::getBytes(packet->buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE + TIMESTAMP_SIZE, DATA_SIZE_SIZE));
@@ -207,23 +216,23 @@ int main(void) {
 		packetList.push_front(newPacket);
 		packet = newPacket;
 		currentPack = packetList.begin();
-		printf("here");
+		//printf("here");
 		currentPack++;
         myfile << "T " << lastAcknowledged << " " << cwnd << " " << ssThresh << " " << millis << "\n";
-        printf("Timeout, restarting transimission from seq no %d\n", packetSeqNo);
+        //printf("Timeout, restarting transimission from seq no %d\n", packetSeqNo);
         continue;
       } else if (n == -1)
       {
-        printf("Error..\n");
+        //printf("Error..\n");
         return 1;
       }
 
       recvlen = recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)&remaddr, &slen);
 	  char *endptr;
 	  unsigned long long int rrtend = strtoull(TcpPacket::getBytes(buf, SEQUENCE_SIZE + ACK_SIZE + FLAG_SIZE + WINDOW_SIZE_SIZE + CHECKSUM_SIZE, TIMESTAMP_SIZE), &endptr, 10);
-	  //printf("rtt is %llu and rrtend is %llu \n", (long long)getTime(), rrtend);
+	  ////printf("rtt is %llu and rrtend is %llu \n", (long long)getTime(), rrtend);
 	  if (rrtend < tTime) {
-		  printf("Receiving old packet\n");
+		  //printf("Receiving old packet\n");
 		  continue;
 	  }
       if (recvlen >= 0) {
@@ -249,12 +258,12 @@ int main(void) {
         }
 
 
-        printf("Packet received with ACK no %d\n", ano);
+        //printf("Packet received with ACK no %d\n", ano);
         myfile << "A " << ano << "\n";
         
         // Check if this is the last ACK expected.
         if (fileComplete && ano == lastSeqNo + 1) {
-          printf("All packets acknowledged! Yay!!! :D :D :D\n");
+          //printf("All packets acknowledged! Yay!!! :D :D :D\n");
           ftime(&endT);
           diff = (long long) (1000.0 * (endT.time - startT.time)
             + (endT.millitm - startT.millitm));
@@ -266,7 +275,7 @@ int main(void) {
         /* Clear packets from front of queue */
 		TcpPacket* packet = packetList.front();
         int packetNo = atoi(TcpPacket::getBytes(packet->buf, 0, SEQUENCE_SIZE));
-		printf("ano is %d and packetno is %d\n", ano, packetNo);
+		//printf("ano is %d and packetno is %d\n", ano, packetNo);
         while (ano > packetNo)
         {
 		  packetList.pop_front();
@@ -302,14 +311,14 @@ int main(void) {
           same = true;
           lostAck = lastAcknowledged;
           if (lostAck != packetNo) {
-            printf("Consistency error, lostAck is %d and packetNo is %d\n",lostAck,packetNo);
+            //printf("Consistency error, lostAck is %d and packetNo is %d\n",lostAck,packetNo);
             exit(1);
           }
 
           millis = getTime();
-          printf("FastRestransmit: Re-Sending packet with seq no %d\n", lostAck);
+          //printf("FastRestransmit: Re-Sending packet with seq no %d\n", lostAck);
           myfile << "F " << lostAck << " " << cwnd << " " << ssThresh << " " << millis << "\n";
-          //sprintf_s(buf, tcpPacket.buf, i);
+          //s//printf_s(buf, tcpPacket.buf, i);
           if (sendto(fd, packet->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
             perror("sendto");
             exit(1);
@@ -319,7 +328,7 @@ int main(void) {
         /* CHECK FOR WHAT HAPPENS IF TRIPLE DUP ACK IN SLOW START PHASE */
 
         if (fastRetransmit && ano > lostAck && ano >= recover) {
-          printf("Leaving fast retransmit");
+          //printf("Leaving fast retransmit");
           fastRetransmit = false;
           same = false;
           recover = -1;
@@ -332,20 +341,20 @@ int main(void) {
         } else if (fastRetransmit && ano > lostAck && ano < recover) {
           cwnd = cwnd - (ano - lostAck);
           lostAck = ano;
-          printf("Received an ACK(%d) for retransmitted packet(%d), but still less than recover(%d). Reducind window to %d\n", ano, lostAck, recover, cwnd);
+          //printf("Received an ACK(%d) for retransmitted packet(%d), but still less than recover(%d). Reducind window to %d\n", ano, lostAck, recover, cwnd);
         }
 
         /* IMPLEMENT TCP FLOW CONTROL */
 
         if (fileComplete) {
 		  lastAcknowledged = ano;
-          printf("File completely sent, no more packets to send. Waiting for acks.\n");
+          //printf("File completely sent, no more packets to send. Waiting for acks.\n");
           continue;
         }
 
         if (fastRetransmit) {
 		  lastAcknowledged = ano;
-          printf("FastRetransmit: Increasing window by 1. cwnd is %d", cwnd);
+          //printf("FastRetransmit: Increasing window by 1. cwnd is %d", cwnd);
           cwnd++;
           int packetsInAir = seqNo - (lastAcknowledged - 1);
           int canBeSent = cwnd - packetsInAir;
@@ -363,7 +372,7 @@ int main(void) {
               TcpPacket *newPacket = new TcpPacket(seqNo, 0, flags, 0, millis, (unsigned int) nL, nBuf);
 				  *currentPack = newPacket;
 				  free(packet);
-				  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+				  //printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 				  myfile << "F " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
 				  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 					  perror("sendto");
@@ -374,7 +383,7 @@ int main(void) {
 				  /* Check if file completely sent */
 				  if (is.eof()) {
 					  fileComplete = true;
-					  printf("Sending FIN Packet indicating transmission complete\n");
+					  //printf("Sending FIN Packet indicating transmission complete\n");
 					  bool flags[] = { false, false, false, false, false, false, false, false, true };
 					  millis = getTime();
 					  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, millis, PACKET_SIZE, nullptr);
@@ -383,7 +392,7 @@ int main(void) {
 						  exit(1);
 					  }
 					  lastSeqNo = seqNo;
-					  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+					  //printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 					  myfile << "F " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
 					  packetList.push_back(newPacket);
 					  break;
@@ -396,11 +405,11 @@ int main(void) {
 
 				  millis = getTime();
               TcpPacket *newPacket = new TcpPacket(seqNo, 0, flags, 0, millis, (unsigned int) is.gcount(), buffer);
-              printf("FastRestransmit: Sending packet with seq no %d and size %d\n", seqNo, (unsigned int) is.gcount());
+              //printf("FastRestransmit: Sending packet with seq no %d and size %d\n", seqNo, (unsigned int) is.gcount());
 				  myfile << "F " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
 
 				  //free(buffer);
-				  //sprintf_s(buf, tcpPacket.buf, i);
+				  //s//printf_s(buf, tcpPacket.buf, i);
 				  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 					  perror("sendto");
 					  exit(1);
@@ -414,13 +423,13 @@ int main(void) {
           increase in window size exceeds ssThresh */
 
           if (ano - lastAcknowledged > 10) {
-			  printf("SHOULDN'T BE HERE!!!");
+			  //printf("SHOULDN'T BE HERE!!!");
             cwnd = cwnd + 1;
           } else {
             cwnd = min(cwnd + (ano - lastAcknowledged), ssThresh);
           }
           lastAcknowledged = ano;
-          printf("Slow start: Window increased to %d where ssThresh is %d\n", cwnd, ssThresh);
+          //printf("Slow start: Window increased to %d where ssThresh is %d\n", cwnd, ssThresh);
           int packetsInAir = seqNo - (lastAcknowledged - 1);
           int canBeSent = cwnd - packetsInAir;
           char *buffer = new char[CONTENT_SIZE];
@@ -439,7 +448,7 @@ int main(void) {
               TcpPacket *newPacket = new TcpPacket(seqNo, 0, flags, 0, millis, (unsigned int) nL, nBuf);
 				  *currentPack = newPacket;
 				  free(packet);
-				  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+				  //printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 
 				  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
 				  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
@@ -452,7 +461,7 @@ int main(void) {
 				/* Check if file completely sent */
 				if (is.eof()) {
 				  fileComplete = true;
-				  printf("Sending FIN Packet indicating transmission complete SLOW START\n");
+				  //printf("Sending FIN Packet indicating transmission complete SLOW START\n");
 				  bool flags[] = { false, false, false, false, false, false, false, false, true };
 
 				  millis = getTime();
@@ -462,7 +471,7 @@ int main(void) {
 					  exit(1);
 				  }
 				  lastSeqNo = seqNo;
-				  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+				  //printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 				  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
 				  packetList.push_back(newPacket);
 				  break;
@@ -473,10 +482,10 @@ int main(void) {
 				  bool flags[] = { false, false, false, false, false, false, false, false, false };
 				  millis = getTime();
               TcpPacket *newPacket = new TcpPacket(seqNo, 0, flags, 0, millis, (unsigned int) is.gcount(), buffer);
-              printf("Sending packet of size %d with seq no %d\n", (unsigned int) is.gcount(), seqNo);
+              //printf("Sending packet of size %d with seq no %d\n", (unsigned int) is.gcount(), seqNo);
 				  myfile << "S " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
 				  //free(buffer);
-				  //sprintf_s(buf, tcpPacket.buf, i);
+				  //s//printf_s(buf, tcpPacket.buf, i);
 				  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 					  perror("sendto");
 					  exit(1);
@@ -489,15 +498,15 @@ int main(void) {
             CAacksReceived = 0;
           }
         } else {
-          //printf("Congestion avoidance phase\n");
+          ////printf("Congestion avoidance phase\n");
           CAacksReceived++;
           if (CAacksReceived == cwnd) {
             cwnd++;
             CAacksReceived = 0;
-            printf("It's time to increase congestion window to %d\n", cwnd);
+            //printf("It's time to increase congestion window to %d\n", cwnd);
           }
           lastAcknowledged = ano;
-          printf("Congestion avoidance: CAacksRecieved is %d, Window is %d & ssThresh is %d\n", CAacksReceived, cwnd, ssThresh);
+          //printf("Congestion avoidance: CAacksRecieved is %d, Window is %d & ssThresh is %d\n", CAacksReceived, cwnd, ssThresh);
           int packetsInAir = seqNo - (lastAcknowledged - 1);
           int canBeSent = cwnd - packetsInAir;
           /* Send newer packets */
@@ -514,7 +523,7 @@ int main(void) {
 				  *currentPack = newPacket;
 				  free(packet);
 
-				  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+				  //printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 				  myfile << "C " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
 				  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 					  perror("sendto");
@@ -527,7 +536,7 @@ int main(void) {
 			  if (is.eof()) {
 				  fileComplete = true;
 
-				  printf("Sending FIN Packet indicating transmission complete\n");
+				  //printf("Sending FIN Packet indicating transmission complete\n");
 				  bool flags[] = { false, false, false, false, false, false, false, false, true };
 				  millis = getTime();
 				  TcpPacket* newPacket = new TcpPacket(seqNo, 1, flags, cwnd, millis, PACKET_SIZE, nullptr);
@@ -536,7 +545,7 @@ int main(void) {
 					  exit(1);
 				  }
 				  lastSeqNo = seqNo;
-				  printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
+				  //printf("Sending last packet with seq no %d to %s port %d\n", seqNo, SERVER, SERVICE_PORT);
 				  myfile << "C " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
 				  packetList.push_back(newPacket);
 				  break;
@@ -548,10 +557,10 @@ int main(void) {
 			  bool flags[] = { false, false, false, false, false, false, false, false, false };
 			  millis = getTime();
               TcpPacket * newPacket = new TcpPacket(seqNo, 0, flags, 0, millis, (unsigned int) is.gcount(), buffer);
-              printf("Sending packet with seq no %d and size %d\n", seqNo, (unsigned int) is.gcount());
+              //printf("Sending packet with seq no %d and size %d\n", seqNo, (unsigned int) is.gcount());
 			  myfile << "C " << seqNo << " " << cwnd << " " << ssThresh << " " << millis << "\n";
 			  //free(buffer);
-			  //sprintf_s(buf, tcpPacket.buf, i);
+			  //s//printf_s(buf, tcpPacket.buf, i);
 			  if (sendto(fd, newPacket->buf, PACKET_SIZE, 0, (struct sockaddr *)&remaddr, slen) == -1) {
 				  perror("sendto");
 				  exit(1);

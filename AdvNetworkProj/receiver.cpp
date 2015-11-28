@@ -41,7 +41,7 @@ LastPacket *processStream(char *stream) {
   return newLastPacket(TcpPacket::getTimeStamp(stream), atoi(TcpPacket::getBytes(stream, 0, SEQUENCE_SIZE)));
 }
 
-int receive(int argc, char **argv) {
+int main(int argc, char **argv) {
   struct sockaddr_in myaddr;  /* our address */
   struct sockaddr_in remaddr; /* remote address */
   socklen_t addrlen = sizeof(remaddr);        /* length of addresses */
@@ -80,6 +80,7 @@ int receive(int argc, char **argv) {
   std::vector<char*> receiveBuffer;
   int nextExpectedSeqno = 0;
   int packetCount = 0;
+  int blah = 0;
   unsigned long long int lastGroupedTime = 0;
   bool sendAck = false;
   LastPacket* lastOrderedPacket = nullptr;
@@ -88,7 +89,7 @@ int receive(int argc, char **argv) {
     printf("waiting on port %d\n", SERVICE_PORT);
     buf = (char *) malloc(PACKET_SIZE * sizeof(char));
     recvlen = recvfrom(fd, buf, PACKET_SIZE, 0, (struct sockaddr *) &remaddr, &addrlen);
-    if (packetCount == DELAY_PARAMETER) {
+    if (packetCount >= DELAY_PARAMETER) {
       sendAck = true;
       packetCount = 0;
     }
@@ -175,7 +176,7 @@ int receive(int argc, char **argv) {
         printf("ACK sent for FIN packet with expectation for %d\n", nextExpectedSeqno);
         free(buf);
         free(Aflags);
-        break;
+        goto out;
       } else {
         receiveBuffer.push_back(buf);
       }
@@ -217,7 +218,7 @@ int receive(int argc, char **argv) {
                 printf("ACK sent for FIN packet with expectation for %d\n", nextExpectedSeqno);
                 free(buf);
                 free(Aflags);
-                break;
+                goto out;
               }
               free(lastOrderedPacket);
               lastOrderedPacket = processStream(receiveBuffer.back());
@@ -254,6 +255,7 @@ int receive(int argc, char **argv) {
       }
     }
   }
+out:
   myfile.close();
   /* never exits */
 }

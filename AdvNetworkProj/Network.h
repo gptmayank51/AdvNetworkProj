@@ -1,6 +1,6 @@
 #pragma once
 
-#define DELAY_PARAMETER 3
+#define DELAY_PARAMETER 1
 
 class Network {
 public:
